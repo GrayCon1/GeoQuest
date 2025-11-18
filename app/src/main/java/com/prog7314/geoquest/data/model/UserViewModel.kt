@@ -29,17 +29,22 @@ class UserViewModel : ViewModel() {
     fun signInWithGoogle(idToken: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            userRepo.signInWithGoogle(idToken)
-                .onSuccess { user ->
+            try {
+                val result = userRepo.signInWithGoogle(idToken)
+                result.onSuccess { user ->
                     _currentUser.value = user
                     _loginSuccess.value = true
                     _errorMessage.value = null
-                }
-                .onFailure { exception ->
+                }.onFailure { exception ->
                     _errorMessage.value = "Google Sign-In failed: ${exception.message}"
                     _loginSuccess.value = false
                 }
-            _isLoading.value = false
+            } catch (e: Exception) {
+                _errorMessage.value = "Unexpected error: ${e.message}"
+                _loginSuccess.value = false
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 
@@ -80,24 +85,32 @@ class UserViewModel : ViewModel() {
     fun updateUser(userData: UserData, currentPassword: String?, newPassword: String?) {
         viewModelScope.launch {
             _isLoading.value = true
-
-            // Update profile
-            userRepo.updateUserProfile(userData)
-                .onSuccess { updatedUser ->
-                    _currentUser.value = updatedUser
-
-                    // Update password if provided
-                    if (!currentPassword.isNullOrBlank() && !newPassword.isNullOrBlank()) {
-                        userRepo.updatePassword(currentPassword, newPassword)
+            try {
+                // Update password if provided
+                if (!currentPassword.isNullOrBlank() && !newPassword.isNullOrBlank()) {
+                    val passwordResult = userRepo.updatePassword(currentPassword, newPassword)
+                    if (passwordResult.isFailure) {
+                        throw passwordResult.exceptionOrNull() ?: Exception("Failed to update password")
                     }
+                }
 
+                // Update profile
+                val result = userRepo.updateUserProfile(userData)
+                if (result.isSuccess) {
+                    _currentUser.value = result.getOrNull()
                     _errorMessage.value = "Profile updated successfully"
+                } else {
+                    throw result.exceptionOrNull() ?: Exception("Failed to update profile")
                 }
-                .onFailure { exception ->
-                    _errorMessage.value = exception.message
+            } catch (e: Exception) {
+                _errorMessage.value = when {
+                    e.message?.contains("password", ignoreCase = true) == true -> "Incorrect current password"
+                    e.message?.contains("network", ignoreCase = true) == true -> "Network error. Please check your connection"
+                    else -> "Error: ${e.message}"
                 }
-
-            _isLoading.value = false
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 

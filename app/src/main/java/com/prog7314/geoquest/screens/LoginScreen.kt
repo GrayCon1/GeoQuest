@@ -1,7 +1,7 @@
 package com.prog7314.geoquest.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,21 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DividerDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,30 +31,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialException
+import androidx.fragment.app.FragmentActivity
 import androidx.navigation.NavController
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.prog7314.geoquest.R
+import com.prog7314.geoquest.components.buttons.GoogleSignInButton
+import com.prog7314.geoquest.components.buttons.PrimaryButton
+import com.prog7314.geoquest.components.cards.AuthCard
+import com.prog7314.geoquest.components.common.BiometricAuthHelper
+import com.prog7314.geoquest.components.common.DividerWithText
+import com.prog7314.geoquest.components.common.ErrorText
+import com.prog7314.geoquest.components.common.GoogleAuthHelper
+import com.prog7314.geoquest.components.textfields.StyledTextField
 import com.prog7314.geoquest.data.model.UserViewModel
-import kotlinx.coroutines.launch
-
+import com.prog7314.geoquest.data.preferences.BiometricPreferences
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
-//    LoginScreen(
-//        rememberNavController()
-//    )
+    // Preview removed - requires NavController and ViewModel
 }
 
 @Composable
@@ -84,13 +72,46 @@ fun LoginScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    // Biometric authentication
+    val isBiometricAvailable = remember { BiometricAuthHelper.isBiometricAvailable(context) }
+    val isBiometricEnabled = remember { BiometricPreferences.isBiometricEnabled(context) }
+    val savedEmail = remember { BiometricPreferences.getSavedUserEmail(context) }
+
+    // Automatically prompt for biometric if enabled
+    LaunchedEffect(Unit) {
+        if (isBiometricAvailable && isBiometricEnabled && !savedEmail.isNullOrBlank()) {
+            val activity = context as? FragmentActivity
+            if (activity != null) {
+                BiometricAuthHelper.authenticate(
+                    activity = activity,
+                    onSuccess = {
+                        // Auto-fill email on successful biometric auth
+                        email = savedEmail
+                        Toast.makeText(
+                            context,
+                            "Biometric authentication successful! Please enter your password.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onError = { error ->
+                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        }
+    }
+
     // Handle successful login
     LaunchedEffect(loginSuccess) {
         if (loginSuccess && currentUser != null) {
+            // Save biometric preference after successful login
+            if (isBiometricAvailable && email.isNotBlank()) {
+                BiometricPreferences.enableBiometric(context, email.trim().lowercase())
+            }
             Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
             navController.navigate("home") {
                 popUpTo("login") { inclusive = true }
-                popUpTo("register") { inclusive = true } // Also pop register
+                popUpTo("register") { inclusive = true }
             }
         }
     }
@@ -103,133 +124,56 @@ fun LoginScreen(
         }
     }
 
-    // Google Sign-In Logic
-    val handleGoogleSignIn: () -> Unit = {
-        coroutineScope.launch {
-            try {
-                val credentialManager = CredentialManager.create(context)
-                val googleIdOption = GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(context.getString(R.string.default_web_client_id))
-                    .build()
 
-                val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(googleIdOption)
-                    .build()
+    AuthCard(modifier = Modifier.fillMaxSize()) {
+        Spacer(modifier = Modifier.height(40.dp))
+        Text(
+            text = "Welcome to",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color(0xFF757575)
+        )
+        Text(
+            text = "GeoQuest",
+            fontSize = 40.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF2C3E50)
+        )
+        Spacer(modifier = Modifier.height(40.dp))
 
-                val result = credentialManager.getCredential(
-                    request = request,
-                    context = context,
-                )
-                val credential = result.credential
-                when (credential) {
-                    is GoogleIdTokenCredential -> {
-                        userViewModel.signInWithGoogle(credential.idToken)
-                    }
+        ErrorText(message = validationError)
 
-                    is CustomCredential -> {
-                        if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                            val googleIdTokenCredential =
-                                GoogleIdTokenCredential.createFrom(credential.data)
-                            userViewModel.signInWithGoogle(googleIdTokenCredential.idToken)
-                        }
-                    }
-
-                    else -> {
-                        Toast.makeText(
-                            context,
-                            "Unexpected credential type: ${credential::class.java.simpleName}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-            } catch (e: GetCredentialException) {
-                Toast.makeText(context, "Google Sign-In failed: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+        StyledTextField(
+            value = email,
+            onValueChange = {
+                email = it
+                validationError = ""
+            },
+            label = "Enter your email",
             modifier = Modifier
-                .padding(32.dp)
-                .fillMaxSize()
-        ) {
-            // ... (rest of the UI, e.g., Text, OutlinedTextFields, etc.)
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = "Welcome to",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2C3E50)
-            )
-            Text(
-                text = "GeoQuest",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2C3E50)
-            )
-            Spacer(modifier = Modifier.height(32.dp))
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        )
 
-            // Validation Error Message
-            if (validationError.isNotEmpty()) {
-                Text(
-                    text = validationError,
-                    color = Color.Red,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
+        Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = email,
-                onValueChange = {
-                    email = it
-                    validationError = ""
-                },
-                label = { Text("Enter your email", color = Color.Gray) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF4A90E2),
-                    unfocusedBorderColor = Color(0xFF4A90E2),
-                    cursorColor = Color(0xFF4A90E2)
-                )
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
-                value = password,
-                onValueChange = {
-                    password = it
-                    validationError = ""
-                },
-                label = { Text("Enter your password", color = Color.Gray) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF4A90E2),
-                    unfocusedBorderColor = Color(0xFF4A90E2),
-                    cursorColor = Color(0xFF4A90E2)
-                ),
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(Icons.Default.Visibility, contentDescription = "Toggle password")
-                    }
+        StyledTextField(
+            value = password,
+            onValueChange = {
+                password = it
+                validationError = ""
+            },
+            label = "Enter your password",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(Icons.Default.Visibility, contentDescription = "Toggle password")
                 }
-            )
+            }
+        )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -239,99 +183,102 @@ fun LoginScreen(
                     Text("Forgot Password?", color = Color(0xFF757575))
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    // Validation
-                    when {
-                        email.isBlank() -> {
-                            validationError = "Please enter your email"
-                        }
+        Spacer(modifier = Modifier.height(8.dp))
 
-                        password.isBlank() -> {
-                            validationError = "Please enter your password"
-                        }
-
-                        !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
-                            validationError = "Please enter a valid email address"
-                        }
-
-                        else -> {
-                            // All validation passed, attempt login
-                            userViewModel.loginUser(email.trim().lowercase(), password)
-                        }
+        PrimaryButton(
+            text = "Login",
+            onClick = {
+                when {
+                    email.isBlank() -> {
+                        validationError = "Please enter your email"
                     }
-                },
+                    password.isBlank() -> {
+                        validationError = "Please enter your password"
+                    }
+                    !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
+                        validationError = "Please enter a valid email address"
+                    }
+                    else -> {
+                        userViewModel.loginUser(email.trim().lowercase(), password)
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            isLoading = isLoading
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        DividerWithText(text = "Or Login with")
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        GoogleSignInButton(
+            onClick = {
+                GoogleAuthHelper.signInWithGoogle(context, coroutineScope, userViewModel)
+            }
+        )
+
+        // Biometric Authentication Option
+        if (isBiometricAvailable) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF64B5F6)),
-                enabled = !isLoading
+                    .clickable {
+                        val activity = context as? FragmentActivity
+                        if (activity != null) {
+                            BiometricAuthHelper.authenticate(
+                                activity = activity,
+                                onSuccess = {
+                                    if (!savedEmail.isNullOrBlank()) {
+                                        email = savedEmail
+                                        Toast.makeText(
+                                            context,
+                                            "Authentication successful! Please enter your password.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
+                                onError = { error ->
+                                    Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    }
+                    .padding(vertical = 8.dp)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                } else {
-                    Text("Login", color = Color.White, fontSize = 18.sp)
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                HorizontalDivider(
-                    modifier = Modifier.weight(1f),
-                    thickness = DividerDefaults.Thickness,
-                    color = Color(0xFFB0B0B0)
+                Icon(
+                    imageVector = Icons.Default.Fingerprint,
+                    contentDescription = "Biometric Login",
+                    modifier = Modifier.size(48.dp),
+                    tint = Color(0xFF64B5F6)
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "  Or Login with  ",
-                    color = Color(0xFF757575),
-                    fontSize = 16.sp
-                )
-                HorizontalDivider(
-                    modifier = Modifier.weight(1f),
-                    thickness = DividerDefaults.Thickness,
-                    color = Color(0xFFB0B0B0)
+                    text = "Login with Biometric",
+                    fontSize = 14.sp,
+                    color = Color(0xFF64B5F6),
+                    fontWeight = FontWeight.Medium
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Don't have an account? ", color = Color(0xFF212121))
+            TextButton(
+                onClick = { navController.navigate("register") },
+                contentPadding = PaddingValues(0.dp)
             ) {
-                OutlinedButton(
-                    onClick = { handleGoogleSignIn() }, // Updated onClick
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(2.dp, Color(0xFF64B5F6)),
-                    modifier = Modifier
-                        .size(64.dp)
-                ) {
-                    Icon(
-                        painterResource(id = R.drawable.google_logo),
-                        contentDescription = "Google Sign-In",
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Don't have an account? ", color = Color(0xFF212121))
-                TextButton(
-                    onClick = { navController.navigate("register") },
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text("Register Now", color = Color(0xFF26C6DA))
-                }
+                Text("Register Now", color = Color(0xFF26C6DA))
             }
         }
     }

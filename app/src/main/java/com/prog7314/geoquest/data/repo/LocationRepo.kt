@@ -97,21 +97,33 @@ class LocationRepo {
     }
 
     // Get locations by user ID, date range, and visibility
-    suspend fun getUserLocationsByDateRangeAndVisibility(
+    suspend fun getFilteredUserLocations(
         userId: String,
-        startDate: Long,
-        endDate: Long,
-        visibility: String = "public"
+        startDate: Long?,
+        endDate: Long?,
+        visibility: String?
     ): Result<List<LocationData>> {
         return try {
-            val snapshot = locationsCollection
+            var query: Query = locationsCollection
                 .whereEqualTo("userId", userId)
-                .whereEqualTo("visibility", visibility)
-                .whereGreaterThanOrEqualTo("dateAdded", startDate)
-                .whereLessThanOrEqualTo("dateAdded", endDate)
+
+            if (visibility != null) {
+                query = query.whereEqualTo("visibility", visibility)
+            }
+
+            if (startDate != null) {
+                query = query.whereGreaterThanOrEqualTo("dateAdded", startDate)
+            }
+
+            if (endDate != null) {
+                query = query.whereLessThanOrEqualTo("dateAdded", endDate)
+            }
+
+            val snapshot = query
                 .orderBy("dateAdded", Query.Direction.DESCENDING)
                 .get()
                 .await()
+
             val locations = snapshot.documents.mapNotNull { doc ->
                 doc.toObject(LocationData::class.java)?.copy(id = doc.id)
             }

@@ -56,14 +56,7 @@ GeoQuest’s goal is to combine location tracking, social sharing, and gamified 
 **Lead Programmer**  
 _IIE Varsity College – BSc Computer Science (Application Development)_  
 Cape Town, South Africa
-
-**Taylor February**
-_IIE Varsity College – BSc Computer Science (Application Development)_  
-Cape Town, South Africa
-
-**Sidney Jones**
-_IIE Varsity College – BSc Computer Science (Application Development)_  
-Cape Town, South Africa
+- [GitHub] (https://github.com/GrayCon1)
 
 ---
 

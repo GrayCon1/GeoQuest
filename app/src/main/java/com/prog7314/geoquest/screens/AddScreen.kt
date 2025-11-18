@@ -27,7 +27,13 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.prog7314.geoquest.components.overlays.InlineLoadingIndicator
 import com.prog7314.geoquest.data.data.LocationData
 import com.prog7314.geoquest.data.model.LocationViewModel
 import com.prog7314.geoquest.data.model.UserViewModel
@@ -35,7 +41,7 @@ import com.prog7314.geoquest.data.model.UserViewModel
 @Preview
 @Composable
 fun AddScreenPreview() {
-//    AddScreen(rememberNavController())
+    // Preview removed - requires NavController and ViewModel
 }
 
 @SuppressLint("MissingPermission")
@@ -193,9 +199,20 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Google Maps placeholder with save button
-                GoogleMapsPlaceholder(
-                    onSaveLocation = {
+                // Location Preview Label
+                Text(
+                    text = "Location Preview",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF2C3E50),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                // Google Maps Preview with clickable save action
+                GoogleMapsPreview(
+                    currentLocation = currentDeviceLocation.value,
+                    locationName = name.ifBlank { "New Location" },
+                    onSaveClick = {
                         val userId = currentUser?.id
                         val lat = currentDeviceLocation.value?.latitude
                         val long = currentDeviceLocation.value?.longitude
@@ -206,7 +223,7 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                                 "Error: User not logged in.",
                                 Toast.LENGTH_SHORT
                             ).show()
-                            return@GoogleMapsPlaceholder
+                            return@GoogleMapsPreview
                         }
 
                         if (lat == null || long == null) {
@@ -215,7 +232,34 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                                 "Error: Could not get current location.",
                                 Toast.LENGTH_SHORT
                             ).show()
-                            return@GoogleMapsPlaceholder
+                            return@GoogleMapsPreview
+                        }
+
+                        if (name.isBlank()) {
+                            Toast.makeText(
+                                context,
+                                "Please enter a location name",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@GoogleMapsPreview
+                        }
+
+                        if (description.isBlank()) {
+                            Toast.makeText(
+                                context,
+                                "Please enter a description",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@GoogleMapsPreview
+                        }
+
+                        if (selectedImageUri == null) {
+                            Toast.makeText(
+                                context,
+                                "Please select an image",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@GoogleMapsPreview
                         }
 
                         val locationData = LocationData(
@@ -233,16 +277,15 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                         // Navigate back or show success message
                         navController.popBackStack()
                         Toast
-                            .makeText(context, "Location Added", Toast.LENGTH_SHORT)
+                            .makeText(context, "Location saved successfully!", Toast.LENGTH_SHORT)
                             .show()
-                    },
-                    canSave = name.isNotBlank() && description.isNotBlank() && selectedImageUri != null
+                    }
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
 
                 if (isLoading) {
-                    CircularProgressIndicator(
+                    InlineLoadingIndicator(
                         color = Color(0xFF87CEEB),
                         modifier = Modifier.padding(16.dp)
                     )
@@ -340,49 +383,95 @@ fun VisibilityToggle(
 }
 
 @Composable
-fun GoogleMapsPlaceholder(onSaveLocation: () -> Unit = {}, canSave: Boolean = true) {
+fun GoogleMapsPreview(
+    currentLocation: LatLng? = null,
+    locationName: String = "New Location",
+    onSaveClick: () -> Unit = {}
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F0F0))
+            .height(250.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Map placeholder content
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Google Maps Component\n(To be implemented)",
-                    textAlign = TextAlign.Center,
-                    color = Color.Gray,
-                    fontSize = 16.sp
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            // Save location button at bottom
-            Button(
-                onClick = onSaveLocation, // Correctly assign the function to onClick
-                enabled = canSave,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp)
-                    .height(40.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF87CEEB)
-                )
-            ) {
-                Text(
-                    text = "Save Location",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
+            if (currentLocation != null) {
+                // Actual Google Maps Component
+                val cameraPositionState = rememberCameraPositionState {
+                    position = CameraPosition.fromLatLngZoom(currentLocation, 15f)
+                }
+
+                val markerState = remember(currentLocation) {
+                    MarkerState(position = currentLocation)
+                }
+
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState
+                ) {
+                    Marker(
+                        state = markerState,
+                        title = locationName,
+                        snippet = "Lat: %.4f, Lng: %.4f".format(
+                            currentLocation.latitude,
+                            currentLocation.longitude
+                        )
+                    )
+                }
+
+                // Location info overlay at top - clickable to save
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(12.dp)
+                        .clickable { onSaveClick() },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF64B5F6).copy(alpha = 0.95f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "📍 $locationName",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Tap to save",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            } else {
+                // Loading/waiting state
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFFF5F5F5)),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF64B5F6),
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Getting your location...",
+                        fontSize = 14.sp,
+                        color = Color(0xFF757575),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }

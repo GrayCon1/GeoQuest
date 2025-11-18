@@ -35,7 +35,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,10 +48,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -67,7 +67,7 @@ import com.prog7314.geoquest.data.model.UserViewModel
 @Preview
 @Composable
 fun HomeScreenPreview() {
-//    PROG7314Theme { HomeScreen(rememberNavController()) }
+    // Preview removed - requires NavController and ViewModel
 }
 
 @Composable
@@ -241,11 +241,33 @@ fun MapScreen(
         }
 
         if (showFilter) {
-            FilterOverlay(onDismiss = { showFilter = false })
+            FilterScreen(
+                onDismiss = { showFilter = false },
+                onApply = { type, fromDate, toDate ->
+                    // Filter locations based on selected criteria
+                    val currentUser = userViewModel.currentUser.value
+                    currentUser?.id?.let { userId ->
+                        locationViewModel.loadFilteredUserLocations(
+                            userId,
+                            fromDate,
+                            toDate,
+                            if (type.lowercase() == "all") null else type.lowercase()
+                        )
+                    }
+                }
+            )
         }
 
         if (showNotifications) {
-            NotificationOverlay(onDismiss = { showNotifications = false })
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable(onClick = { showNotifications = false }),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                NotificationScreen(navController = rememberNavController())
+            }
         }
     }
 }
@@ -257,11 +279,12 @@ private fun startLocationUpdates(
     onLocationReceived: (LatLng) -> Unit
 ): LocationCallback {
     val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-    val locationRequest = LocationRequest.create().apply {
-        interval = 5000 // 5 seconds
-        fastestInterval = 2000 // 2 seconds
-        priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-    }
+    val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
+        Priority.PRIORITY_HIGH_ACCURACY,
+        5000 // 5 seconds interval
+    )
+        .setMinUpdateIntervalMillis(2000) // 2 seconds fastest interval
+        .build()
 
     val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -275,127 +298,6 @@ private fun startLocationUpdates(
     return locationCallback
 }
 
-@Composable
-fun FilterOverlay(onDismiss: () -> Unit) {
-    var selectedType by remember { mutableStateOf("Public") }
-    var fromDate by remember { mutableStateOf("") }
-    var toDate by remember { mutableStateOf("") }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
-            .clickable(onClick = onDismiss),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .clickable(onClick = {}), // Prevent dismiss when clicking inside
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Filter",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2C3E50)
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Date section
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("FROM", fontWeight = FontWeight.Bold)
-                    Text("TO", fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    OutlinedTextField(
-                        value = fromDate,
-                        onValueChange = { fromDate = it },
-                        placeholder = { Text("DD/MM/YYYY") },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(24.dp)
-                    )
-                    OutlinedTextField(
-                        value = toDate,
-                        onValueChange = { toDate = it },
-                        placeholder = { Text("DD/MM/YYYY") },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(24.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    "TYPE",
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.Start)
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Type selection
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    FilterTypeButton(
-                        text = "Public",
-                        isSelected = selectedType == "Public",
-                        onClick = { selectedType = "Public" },
-                        modifier = Modifier.weight(1f)
-                    )
-                    FilterTypeButton(
-                        text = "Private",
-                        isSelected = selectedType == "Private",
-                        onClick = { selectedType = "Private" },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FilterTypeButton(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.height(48.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (isSelected) Color(0xFF2C3E50) else Color.White,
-            contentColor = if (isSelected) Color.White else Color(0xFF2C3E50)
-        ),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(2.dp, Color(0xFF2C3E50))
-    ) {
-        Text(text)
-    }
-}
 
 @Composable
 fun NotificationOverlay(onDismiss: () -> Unit) {

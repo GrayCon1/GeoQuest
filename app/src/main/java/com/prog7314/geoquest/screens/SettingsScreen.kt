@@ -48,9 +48,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.prog7314.geoquest.components.overlays.CenteredLoadingIndicator
+import com.prog7314.geoquest.components.textfields.StyledTextField
 import com.prog7314.geoquest.data.model.UserViewModel
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.fragment.app.FragmentActivity
+import com.prog7314.geoquest.components.common.BiometricAuthHelper
+import com.prog7314.geoquest.data.preferences.BiometricPreferences
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -93,18 +101,7 @@ fun SettingsScreen(navController: NavController, userViewModel: UserViewModel) {
 
     val user = currentUser
     if (user == null) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Loading user data...")
-            }
-        }
+        CenteredLoadingIndicator(message = "Loading user data...")
         return
     }
 
@@ -134,6 +131,10 @@ fun SettingsContent(
     var selectedLanguage by remember { mutableStateOf("English") }
     var isLanguageDropdownExpanded by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
+    val isBiometricAvailable = remember { BiometricAuthHelper.isBiometricAvailable(context) }
+    var isBiometricEnabled by remember { mutableStateOf(BiometricPreferences.isBiometricEnabled(context)) }
 
     val languages = listOf("English", "Spanish", "French", "German", "Portuguese")
 
@@ -278,48 +279,45 @@ fun SettingsContent(
                     }
                 }
 
-                // Editable Name Display
-                OutlinedTextField(
+                // Editable Username Field
+                StyledTextField(
                     value = username,
                     onValueChange = {
                         username = it
                         validationError = ""
                     },
-                    label = { Text("Username", color = Color.Gray) },
+                    label = "Username",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(12.dp)
+                        .padding(bottom = 16.dp)
                 )
 
                 // Current Password Field
-                OutlinedTextField(
+                StyledTextField(
                     value = currentPassword,
                     onValueChange = {
                         currentPassword = it
                         validationError = ""
                     },
-                    label = { Text("Current Password", color = Color.Gray) },
+                    label = "Current Password",
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(12.dp)
+                        .padding(bottom = 16.dp)
                 )
 
                 // New Password Field
-                OutlinedTextField(
+                StyledTextField(
                     value = newPassword,
                     onValueChange = {
                         newPassword = it
                         validationError = ""
                     },
-                    label = { Text("New Password", color = Color.Gray) },
+                    label = "New Password",
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(12.dp)
+                        .padding(bottom = 16.dp)
                 )
 
                 // Language Dropdown
@@ -365,7 +363,93 @@ fun SettingsContent(
                     }
                 }
 
-                // Action Buttons
+                // Biometric Authentication Toggle
+                if (isBiometricAvailable) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Fingerprint,
+                                    contentDescription = "Biometric",
+                                    tint = Color(0xFF64B5F6),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Biometric Authentication",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF2C3E50)
+                                    )
+                                    Text(
+                                        text = if (isBiometricEnabled) "Enabled" else "Disabled",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF757575)
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = isBiometricEnabled,
+                                onCheckedChange = { enabled ->
+                                    if (enabled) {
+                                        val activity = context as? FragmentActivity
+                                        if (activity != null) {
+                                            BiometricAuthHelper.authenticate(
+                                                activity = activity,
+                                                onSuccess = {
+                                                    BiometricPreferences.enableBiometric(context, user.email)
+                                                    isBiometricEnabled = true
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Biometric authentication enabled",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                },
+                                                onError = { error ->
+                                                    Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                        }
+                                    } else {
+                                        BiometricPreferences.disableBiometric(context)
+                                        isBiometricEnabled = false
+                                        Toast.makeText(
+                                            context,
+                                            "Biometric authentication disabled",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFF64B5F6),
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Color(0xFFE0E0E0)
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Validation Error Message
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -379,15 +463,19 @@ fun SettingsContent(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White
                         ),
-                        shape = RoundedCornerShape(28.dp),
-                        border = BorderStroke(2.dp, Color.Red),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(2.dp, Color(0xFFE53935)),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 2.dp,
+                            pressedElevation = 4.dp
+                        ),
                         enabled = !isLoading
                     ) {
                         Text(
-                            text = "SIGN OUT",
-                            color = Color.Red,
+                            text = "Sign Out",
+                            color = Color(0xFFE53935),
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
 
@@ -420,23 +508,27 @@ fun SettingsContent(
                             .weight(1f)
                             .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White
+                            containerColor = Color(0xFF64B5F6)
                         ),
-                        shape = RoundedCornerShape(28.dp),
-                        border = BorderStroke(2.dp, Color(0xFF4A90E2)),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 2.dp,
+                            pressedElevation = 4.dp
+                        ),
                         enabled = !isLoading
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
-                                color = Color(0xFF4A90E2),
-                                modifier = Modifier.size(24.dp)
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
                             )
                         } else {
                             Text(
-                                text = "SAVE",
-                                color = Color(0xFF4A90E2),
+                                text = "Save",
+                                color = Color.White,
                                 fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }

@@ -1,5 +1,6 @@
 package com.prog7314.geoquest.data.repo
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
@@ -12,36 +13,47 @@ class UserRepo {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
     private val usersCollection = firestore.collection("users")
+    
+    companion object {
+        private const val TAG = "UserRepo"
+    }
 
     // ... existing registerUser, loginUser, etc. methods
 
     suspend fun signInWithGoogle(idToken: String): Result<UserData> {
         return try {
+            Log.d(TAG, "Starting Google Sign-In with token")
             val credential = GoogleAuthProvider.getCredential(idToken, null)
             val authResult = auth.signInWithCredential(credential).await()
-            val user = authResult.user ?: throw Exception("Google Sign-In failed")
+            val user = authResult.user ?: throw Exception("Google Sign-In failed: No user returned")
 
-            // Check if user is new
-            val isNewUser = authResult.additionalUserInfo?.isNewUser ?: false
-            if (isNewUser) {
-                // Create new user profile in Firestore
+            Log.d(TAG, "Google Auth successful for user: ${user.uid}")
+
+            val userDocRef = usersCollection.document(user.uid)
+            val userDoc = userDocRef.get().await()
+
+            if (userDoc.exists()) {
+                // User exists in Firestore, fetch their data
+                Log.d(TAG, "User profile exists in Firestore, fetching...")
+                val userData = userDoc.toObject(UserData::class.java)?.copy(id = user.uid)
+                    ?: throw Exception("Failed to parse user profile")
+                Result.success(userData)
+            } else {
+                // User does not exist in Firestore, create a new profile
+                Log.d(TAG, "User profile does not exist in Firestore, creating new one...")
                 val newUser = UserData(
                     id = user.uid,
                     name = user.displayName ?: "N/A",
                     username = user.email?.substringBefore('@') ?: "user_${user.uid.take(6)}",
                     email = user.email ?: ""
                 )
-                usersCollection.document(user.uid).set(newUser).await()
+                userDocRef.set(newUser).await()
+                Log.d(TAG, "New user profile created successfully")
                 Result.success(newUser)
-            } else {
-                // Fetch existing user profile from Firestore
-                val doc = usersCollection.document(user.uid).get().await()
-                val userData = doc.toObject(UserData::class.java)?.copy(id = user.uid)
-                    ?: throw Exception("User profile not found")
-                Result.success(userData)
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e(TAG, "Google Sign-In failed", e)
+            Result.failure(Exception("Google Sign-In failed: ${e.message}", e))
         }
     }
 

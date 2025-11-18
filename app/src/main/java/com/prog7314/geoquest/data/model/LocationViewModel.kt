@@ -26,7 +26,15 @@ class LocationViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                locationRepo.addLocation(locationData)
+                val result = locationRepo.addLocation(locationData)
+                result.onSuccess { addedLocation ->
+                    // Send notification about the new location
+                    notificationRepo.notifyLocationAdded(
+                        userId = locationData.userId,
+                        locationId = addedLocation.id,
+                        locationName = addedLocation.name
+                    )
+                }
             } catch (e: Exception) {
                 _errorMessage.value = e.message
             } finally {
@@ -66,6 +74,19 @@ class LocationViewModel : ViewModel() {
             _isLoading.value = true
             try {
                 _locations.value = locationRepo.getUserLocationsByDateRange(userId, startDate, endDate).getOrThrow()
+            } catch (e: Exception) {
+                _errorMessage.value = e.message
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadFilteredUserLocations(userId: String, startDate: Long?, endDate: Long?, visibility: String?) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                _locations.value = locationRepo.getFilteredUserLocations(userId, startDate, endDate, visibility).getOrThrow()
             } catch (e: Exception) {
                 _errorMessage.value = e.message
             } finally {

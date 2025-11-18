@@ -1,31 +1,14 @@
 package com.prog7314.geoquest.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.SegmentedButtonDefaults.borderStroke
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,33 +23,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
-import androidx.compose.ui.unit.sp
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialException
 import androidx.navigation.NavController
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.prog7314.geoquest.R
+import com.prog7314.geoquest.components.buttons.GoogleSignInButton
+import com.prog7314.geoquest.components.buttons.PrimaryButton
+import com.prog7314.geoquest.components.cards.AuthCard
+import com.prog7314.geoquest.components.common.DividerWithText
+import com.prog7314.geoquest.components.common.ErrorText
+import com.prog7314.geoquest.components.common.GoogleAuthHelper
+import com.prog7314.geoquest.components.textfields.StyledTextField
 import com.prog7314.geoquest.data.data.UserData
 import com.prog7314.geoquest.data.model.UserViewModel
-import kotlinx.coroutines.launch
-import java.security.SecureRandom
-import java.util.UUID
 
 @Preview(showBackground = true)
 @Composable
 fun RegisterScreenPreview() {
-//    RegisterScreen(rememberNavController())
+    // Preview removed - requires NavController and ViewModel
 }
 
 @Composable
@@ -106,305 +82,155 @@ fun RegisterScreen(
         }
     }
 
-    // Google Sign-In Logic
-    val handleGoogleSignIn: () -> Unit = {
-        coroutineScope.launch {
-            try {
-                val credentialManager = CredentialManager.create(context)
-                val nonce = UUID.randomUUID().toString()
-                val googleIdOption = GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(context.getString(R.string.default_web_client_id))
-                    .setNonce(nonce)
-                    .build()
-
-                val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(googleIdOption)
-                    .build()
-
-                val result = credentialManager.getCredential(
-                    request = request,
-                    context = context,
-                )
-                val credential = result.credential
-                when (credential) {
-                    is GoogleIdTokenCredential -> {
-                        userViewModel.signInWithGoogle(credential.idToken)
-                    }
-
-                    is CustomCredential -> {
-                        if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                            val googleIdTokenCredential =
-                                GoogleIdTokenCredential.createFrom(credential.data)
-                            userViewModel.signInWithGoogle(googleIdTokenCredential.idToken)
-                        }
-                    }
-
-                    else -> {
-                        Toast.makeText(
-                            context,
-                            "Unexpected credential type: ${credential::class.java.simpleName}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-
-            } catch (e: GetCredentialException) {
-                Toast.makeText(context, "Google Sign-In failed: ${e.message}", Toast.LENGTH_LONG)
-                    .show()
-            }
-        }
-    }
-
-    // Remove the background Box since it's now handled in MainActivity
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Column(
+    AuthCard {
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "Create Account",
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF2C3E50),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "Register to get exploring",
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color(0xFF757575),
+            textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Title
-            Text(
-                text = "Register to get Exploring",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2C3E50),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
+                .padding(top = 8.dp, bottom = 32.dp)
+        )
 
-            // Validation Error Message
-            if (validationError.isNotEmpty()) {
-                Text(
-                    text = validationError,
-                    color = Color.Red,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
+        ErrorText(message = validationError)
 
-            // Full Name Field
-            OutlinedTextField(
-                value = fullName,
-                onValueChange = {
-                    fullName = it
-                    validationError = ""
-                },
-                label = { Text("Name & Surname", color = Color.Gray) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF4A90E2),
-                    unfocusedBorderColor = Color(0xFF4A90E2),
-                    cursorColor = Color(0xFF4A90E2)
-                )
-            )
+        StyledTextField(
+            value = fullName,
+            onValueChange = {
+                fullName = it
+                validationError = ""
+            },
+            label = "Name & Surname",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        )
 
-            // Username Field
-            OutlinedTextField(
-                value = username,
-                onValueChange = {
-                    username = it
-                    validationError = ""
-                },
-                label = { Text("Username", color = Color.Gray) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF4A90E2),
-                    unfocusedBorderColor = Color(0xFF4A90E2),
-                    cursorColor = Color(0xFF4A90E2)
-                )
-            )
+        StyledTextField(
+            value = username,
+            onValueChange = {
+                username = it
+                validationError = ""
+            },
+            label = "Username",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        )
 
-            // Email Field
-            OutlinedTextField(
-                value = email,
-                onValueChange = {
-                    email = it
-                    validationError = ""
-                },
-                label = { Text("Email", color = Color.Gray) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF4A90E2),
-                    unfocusedBorderColor = Color(0xFF4A90E2),
-                    cursorColor = Color(0xFF4A90E2)
-                )
-            )
+        StyledTextField(
+            value = email,
+            onValueChange = {
+                email = it
+                validationError = ""
+            },
+            label = "Email",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        )
 
-            // Password Field
-            OutlinedTextField(
-                value = password,
-                onValueChange = {
-                    password = it
-                    validationError = ""
-                },
-                label = { Text("Password", color = Color.Gray) },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF4A90E2),
-                    unfocusedBorderColor = Color(0xFF4A90E2),
-                    cursorColor = Color(0xFF4A90E2)
-                )
-            )
+        StyledTextField(
+            value = password,
+            onValueChange = {
+                password = it
+                validationError = ""
+            },
+            label = "Password",
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        )
 
-            // Confirm Password Field
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = {
-                    confirmPassword = it
-                    validationError = ""
-                },
-                label = { Text("Confirm password", color = Color.Gray) },
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 32.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF4A90E2),
-                    unfocusedBorderColor = Color(0xFF4A90E2),
-                    cursorColor = Color(0xFF4A90E2)
-                )
-            )
+        StyledTextField(
+            value = confirmPassword,
+            onValueChange = {
+                confirmPassword = it
+                validationError = ""
+            },
+            label = "Confirm password",
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp)
+        )
 
-            // Register Button
-            Button(
-                onClick = {
-                    // Validation
-                    when {
-                        fullName.isBlank() -> {
-                            validationError = "Please enter your full name"
-                        }
-
-                        username.isBlank() -> {
-                            validationError = "Please enter a username"
-                        }
-
-                        email.isBlank() -> {
-                            validationError = "Please enter your email"
-                        }
-
-                        !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
-                            validationError = "Please enter a valid email address"
-                        }
-
-                        password.isBlank() -> {
-                            validationError = "Please enter a password"
-                        }
-
-                        password.length < 6 -> {
-                            validationError = "Password must be at least 6 characters"
-                        }
-
-                        password != confirmPassword -> {
-                            validationError = "Passwords do not match"
-                        }
-
-                        else -> {
-                            // All validation passed, register user
-                            val userData = UserData(
-                                name = fullName.trim(),
-                                username = username.trim(),
-                                email = email.trim().lowercase()
-                            )
-                            userViewModel.registerUser(userData, password.trim())
-                        }
+        PrimaryButton(
+            text = "Register",
+            onClick = {
+                when {
+                    fullName.isBlank() -> {
+                        validationError = "Please enter your full name"
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2C3E50)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                enabled = !isLoading
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                } else {
-                    Text(
-                        text = "Register",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    username.isBlank() -> {
+                        validationError = "Please enter a username"
+                    }
+                    email.isBlank() -> {
+                        validationError = "Please enter your email"
+                    }
+                    !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
+                        validationError = "Please enter a valid email address"
+                    }
+                    password.isBlank() -> {
+                        validationError = "Please enter a password"
+                    }
+                    password.length < 6 -> {
+                        validationError = "Password must be at least 6 characters"
+                    }
+                    password != confirmPassword -> {
+                        validationError = "Passwords do not match"
+                    }
+                    else -> {
+                        val userData = UserData(
+                            name = fullName.trim(),
+                            username = username.trim(),
+                            email = email.trim().lowercase()
+                        )
+                        userViewModel.registerUser(userData, password.trim())
+                    }
                 }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            isLoading = isLoading,
+            backgroundColor = Color(0xFF2C3E50)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        DividerWithText(text = "Or Register with")
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        GoogleSignInButton(
+            onClick = {
+                GoogleAuthHelper.signInWithGoogle(context, coroutineScope, userViewModel, useNonce = true)
             }
+        )
 
-            Spacer(modifier = Modifier.height(25.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-            HorizontalDivider()
-
-            Spacer(modifier = Modifier.height(25.dp))
-
-            Text(
-                "Or Register with",
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Light,
-                fontSize = 3.em
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            IconButton(
-                onClick = { handleGoogleSignIn() },
-                shape = IconButtonDefaults.filledShape,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(
-                        borderStroke(MaterialTheme.colorScheme.primary, 1.dp),
-                        shape = IconButtonDefaults.filledShape
-                    )
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Already have an account? ", color = Color(0xFF212121))
+            TextButton(
+                onClick = { navController.navigate("login") },
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Icon(
-                    painterResource(id = R.drawable.google_logo),
-                    contentDescription = "Google Logo",
-                    tint = null
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Already have an account? ", color = Color(0xFF212121))
-                TextButton(
-                    onClick = { navController.navigate("login") },
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text("Login Now", color = Color(0xFF26C6DA))
-                }
+                Text("Login Now", color = Color(0xFF26C6DA))
             }
         }
     }

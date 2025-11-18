@@ -65,8 +65,13 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.play.services.auth)
 
+    // Biometric Authentication
+    implementation(libs.androidx.biometric)
+
     implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.firebase.messaging.ktx)
     implementation(libs.kotlinx.coroutines.play.services)
 
     implementation(libs.firebase.ui.auth)
