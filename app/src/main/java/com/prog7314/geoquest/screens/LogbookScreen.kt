@@ -1,16 +1,22 @@
 package com.prog7314.geoquest.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -20,7 +26,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.prog7314.geoquest.components.cards.LocationCard
-import com.prog7314.geoquest.components.common.FilterChipRow
 import com.prog7314.geoquest.components.overlays.CenteredLoadingIndicator
 import com.prog7314.geoquest.data.data.LocationData
 import com.prog7314.geoquest.data.model.LocationViewModel
@@ -39,7 +44,14 @@ enum class VisibilityFilter {
 fun LogbookScreen(
     navController: NavController,
     userViewModel: UserViewModel,
-    locationViewModel: LocationViewModel = viewModel()
+    locationViewModel: LocationViewModel = run {
+        val context = LocalContext.current
+        viewModel(
+            factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
+                context.applicationContext as android.app.Application
+            )
+        )
+    }
 ) {
     val currentUser by userViewModel.currentUser.collectAsState()
     val locations by locationViewModel.locations.collectAsState()
@@ -73,7 +85,8 @@ fun LogbookScreen(
         onDateRangeSelected = { start, end ->
             fromDate = start
             toDate = end
-        }
+        },
+        locationViewModel = locationViewModel
     )
 }
 
@@ -88,10 +101,12 @@ fun LogbookContent(
     onVisibilityFilterSelected: (VisibilityFilter) -> Unit,
     fromDate: Long?,
     toDate: Long?,
-    onDateRangeSelected: (Long?, Long?) -> Unit
+    onDateRangeSelected: (Long?, Long?) -> Unit,
+    locationViewModel: LocationViewModel? = null
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     val dateRangePickerState = rememberDateRangePickerState()
+    var deletedLocationIds by remember { mutableStateOf(setOf<String>()) }
 
     if (showDatePicker) {
         DatePickerDialog(
@@ -204,15 +219,29 @@ fun LogbookContent(
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(locations) { location ->
-                        LocationCard(
-                            location = location,
-                            onClick = {
-                                val encodedName = URLEncoder.encode(location.name, StandardCharsets.UTF_8.toString())
-                                val encodedDesc = URLEncoder.encode(location.description, StandardCharsets.UTF_8.toString())
-                                navController.navigate("home?lat=${location.latitude}&lng=${location.longitude}&name=$encodedName&desc=$encodedDesc")
-                            }
-                        )
+                    items(
+                        items = locations.filter { it.id !in deletedLocationIds },
+                        key = { it.id }
+                    ) { location ->
+                        AnimatedVisibility(
+                            visible = location.id !in deletedLocationIds,
+                            exit = shrinkVertically(
+                                animationSpec = tween(durationMillis = 300)
+                            ) + fadeOut()
+                        ) {
+                            SwipeToDeleteLocationItem(
+                                location = location,
+                                onClick = {
+                                    val encodedName = URLEncoder.encode(location.name, StandardCharsets.UTF_8.toString())
+                                    val encodedDesc = URLEncoder.encode(location.description, StandardCharsets.UTF_8.toString())
+                                    navController.navigate("home?lat=${location.latitude}&lng=${location.longitude}&name=$encodedName&desc=$encodedDesc")
+                                },
+                                onDelete = {
+                                    deletedLocationIds = deletedLocationIds + location.id
+                                    locationViewModel?.deleteLocation(location.id)
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -220,8 +249,61 @@ fun LogbookContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeToDeleteLocationItem(
+    location: LocationData,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else {
+                false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val color = when (dismissState.dismissDirection) {
+                SwipeToDismissBoxValue.EndToStart -> Color(0xFFE53935)
+                else -> Color.Transparent
+            }
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(color, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+        },
+        enableDismissFromStartToEnd = false
+    ) {
+        LocationCard(
+            location = location,
+            onClick = onClick
+        )
+    }
+}
+
 
 // Helper function to get the start of the day for a given timestamp
+@Suppress("unused")
 private fun getStartOfDay(timestamp: Long): Long {
     val calendar = Calendar.getInstance()
     calendar.timeInMillis = timestamp
@@ -252,7 +334,8 @@ fun LogbookScreenPreview() {
             onVisibilityFilterSelected = {},
             fromDate = null,
             toDate = null,
-            onDateRangeSelected = { _, _ -> }
+            onDateRangeSelected = { _, _ -> },
+            locationViewModel = null
         )
     }
 }
@@ -271,7 +354,9 @@ fun LogbookScreenEmptyPreview() {
             onVisibilityFilterSelected = {},
             fromDate = null,
             toDate = null,
-            onDateRangeSelected = { _, _ -> }
+            onDateRangeSelected = { _, _ -> },
+            locationViewModel = null
         )
     }
 }
+

@@ -47,7 +47,12 @@ fun AddScreenPreview() {
 @SuppressLint("MissingPermission")
 @Composable
 fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
-    val locationViewModel: LocationViewModel = viewModel()
+    val contexts = LocalContext.current
+    val locationViewModel: LocationViewModel = viewModel(
+        factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
+            contexts.applicationContext as android.app.Application
+        )
+    )
     val currentUser by userViewModel.currentUser.collectAsState()
 
     var name by remember { mutableStateOf("") }

@@ -17,8 +17,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.AppRegistration
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -69,12 +72,15 @@ fun SettingsScreen(navController: NavController, userViewModel: UserViewModel) {
     val currentUser by userViewModel.currentUser.collectAsState()
     val isLoading by userViewModel.isLoading.collectAsState()
     val errorMessage by userViewModel.errorMessage.collectAsState()
+    val showGuestUpgradePrompt by userViewModel.showGuestUpgradePrompt.collectAsState()
+    val isGuestMode by userViewModel.isGuestMode.collectAsState()
+    val isConnected by userViewModel.isConnected.collectAsState()
     val context = LocalContext.current
     var isSigningOut by remember { mutableStateOf(false) }
 
-    // Check if user is logged in, if not redirect to login
-    LaunchedEffect(currentUser, isSigningOut) {
-        if (currentUser == null) {
+    // Redirect only if truly logged out (null user and not guest mode)
+    LaunchedEffect(currentUser, isSigningOut, isGuestMode) {
+        if (currentUser == null && !isGuestMode) {
             val message = if (isSigningOut) {
                 "Signed out successfully"
             } else {
@@ -82,12 +88,11 @@ fun SettingsScreen(navController: NavController, userViewModel: UserViewModel) {
             }
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             navController.navigate("login") {
-                popUpTo(0) { inclusive = true } // Clear back stack
+                popUpTo(0) { inclusive = true }
             }
         }
     }
 
-    // Show messages from ViewModel
     LaunchedEffect(errorMessage) {
         errorMessage?.let { message ->
             if (message == "Profile updated successfully") {
@@ -100,7 +105,17 @@ fun SettingsScreen(navController: NavController, userViewModel: UserViewModel) {
     }
 
     val user = currentUser
-    if (user == null) {
+    if (user == null && isGuestMode) {
+        // Guest user placeholder data (optional)
+        SettingsGuestContent(
+            showUpgrade = showGuestUpgradePrompt,
+            isConnected = isConnected,
+            onLogin = { navController.navigate("login") },
+            onRegister = { navController.navigate("register") },
+            onDismiss = { userViewModel.dismissGuestUpgradePrompt() }
+        )
+        return
+    } else if (user == null) {
         CenteredLoadingIndicator(message = "Loading user data...")
         return
     }
@@ -108,6 +123,11 @@ fun SettingsScreen(navController: NavController, userViewModel: UserViewModel) {
     SettingsContent(
         user = user,
         isLoading = isLoading,
+        showGuestUpgradePrompt = showGuestUpgradePrompt && isGuestMode,
+        isConnected = isConnected,
+        onUpgradeLogin = { navController.navigate("login") },
+        onUpgradeRegister = { navController.navigate("register") },
+        onDismissUpgrade = { userViewModel.dismissGuestUpgradePrompt() },
         onUpdateUser = { userData, newPassword, currentPassword ->
             userViewModel.updateUser(userData, newPassword, currentPassword)
         },
@@ -119,9 +139,133 @@ fun SettingsScreen(navController: NavController, userViewModel: UserViewModel) {
 }
 
 @Composable
+private fun UpgradePromptCard(
+    modifier: Modifier = Modifier,
+    isConnected: Boolean,
+    onLogin: () -> Unit,
+    onRegister: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF3E0)),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        border = BorderStroke(1.dp, Color(0xFFF0D27A))
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (isConnected) "Online now – unlock syncing & achievements!" else "Offline – prompt will enable when online.",
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF7A5C15),
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Dismiss",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable { onDismiss() },
+                    tint = Color(0xFF7A5C15)
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "Create an account to save progress, restore on any device, and receive location alerts.",
+                color = Color(0xFF8B6F1C),
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onLogin,
+                    enabled = isConnected,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEE9B00))
+                ) {
+                    Icon(Icons.Default.Login, contentDescription = null, tint = Color.White)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Login", color = Color.White, fontWeight = FontWeight.Medium)
+                }
+                Button(
+                    onClick = onRegister,
+                    enabled = isConnected,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A9D8F))
+                ) {
+                    Icon(Icons.Default.AppRegistration, contentDescription = null, tint = Color.White)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Register", color = Color.White, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsGuestContent(
+    showUpgrade: Boolean,
+    isConnected: Boolean,
+    onLogin: () -> Unit,
+    onRegister: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFE8F4F8))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+        ) {
+            if (showUpgrade) {
+                UpgradePromptCard(
+                    isConnected = isConnected,
+                    onLogin = onLogin,
+                    onRegister = onRegister,
+                    onDismiss = onDismiss,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(24.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Guest Mode", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF2C3E50))
+                    Spacer(Modifier.height(8.dp))
+                    Text("You're exploring as a guest. Some features are limited.", color = Color.Gray, fontSize = 14.sp)
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = onLogin, enabled = isConnected) { Text("Login") }
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = onRegister, enabled = isConnected) { Text("Register") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun SettingsContent(
     user: UserData,
     isLoading: Boolean,
+    showGuestUpgradePrompt: Boolean,
+    isConnected: Boolean,
+    onUpgradeLogin: () -> Unit,
+    onUpgradeRegister: () -> Unit,
+    onDismissUpgrade: () -> Unit,
     onUpdateUser: (UserData, String, String) -> Unit,
     onSignOut: () -> Unit
 ) {
@@ -144,16 +288,27 @@ fun SettingsContent(
         SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(date)
     }
 
-    Box(
+    // Insert upgrade prompt at top if needed
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFE8F4F8))
     ) {
+        if (showGuestUpgradePrompt) {
+            UpgradePromptCard(
+                isConnected = isConnected,
+                onLogin = onUpgradeLogin,
+                onRegister = onUpgradeRegister,
+                onDismiss = onDismissUpgrade,
+                modifier = Modifier.padding(24.dp)
+            )
+        }
+        // Existing content container moved inside Column
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp)
-                .align(Alignment.Center),
+                .weight(1f),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -552,7 +707,12 @@ fun SettingsScreenPreview() {
     SettingsContent(
         user = mockUser,
         isLoading = false,
-        onUpdateUser = { _, _, _->
+        showGuestUpgradePrompt = false,
+        isConnected = true,
+        onUpgradeLogin = { },
+        onUpgradeRegister = { },
+        onDismissUpgrade = { },
+        onUpdateUser = { _, _, _ ->
             // Mock function for preview
         },
         onSignOut = {}

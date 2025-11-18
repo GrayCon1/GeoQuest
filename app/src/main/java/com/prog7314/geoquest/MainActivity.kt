@@ -14,9 +14,11 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -55,9 +57,21 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Main() {
     val navController = rememberNavController()
-    val userViewModel: UserViewModel = viewModel()
+    val context = LocalContext.current
+    val userViewModel: UserViewModel = viewModel(
+        factory = androidx.lifecycle.viewmodel.compose.viewModel<UserViewModel>().let {
+            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
+                context.applicationContext as android.app.Application
+            )
+        }
+    )
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // Auto sign-in on app start
+    LaunchedEffect(Unit) {
+        userViewModel.autoSignIn()
+    }
 
     val homeRoute = "home?lat={lat}&lng={lng}&name={name}&desc={desc}"
     val routesWithNavBar = listOf(homeRoute, "logbook", "add", "settings")
@@ -124,7 +138,7 @@ fun Main() {
 @Composable
 fun BottomNavigationBar(navController: NavController, currentRoute: String?) {
     val homeRoute = "home?lat={lat}&lng={lng}&name={name}&desc={desc}"
-    val isOnHome = currentRoute?.startsWith(homeRoute.substringBefore('?')) == true
+    val isOnHome = currentRoute?.startsWith("home") == true
     val middleScreen = if (isOnHome) Screen.Add else Screen.Home
 
     val navigationItems = listOf(
@@ -136,8 +150,12 @@ fun BottomNavigationBar(navController: NavController, currentRoute: String?) {
     NavigationBar {
         navigationItems.forEachIndexed { index, item ->
             val isMiddleItem = index == 1
-            val route =
-                if (item.route.contains("?")) item.route.substringBefore('?') else item.route
+            val route = if (item.route.contains("?")) {
+                item.route.substringBefore('?')
+            } else {
+                item.route
+            }
+
             val isSelected = if (isMiddleItem) {
                 currentRoute?.startsWith("home") == true || currentRoute?.startsWith("add") == true
             } else {
@@ -154,13 +172,29 @@ fun BottomNavigationBar(navController: NavController, currentRoute: String?) {
                 label = { Text(item.label) },
                 selected = isSelected,
                 onClick = {
-                    if (currentRoute != route) {
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.startDestinationId) {
+                    // Determine the target route
+                    val targetRoute = when {
+                        item == Screen.Home -> "home"
+                        item == Screen.Add -> "add"
+                        item == Screen.Logbook -> "logbook"
+                        item == Screen.Settings -> "settings"
+                        else -> route
+                    }
+
+                    // Get current base route (without parameters)
+                    val currentBaseRoute = currentRoute?.substringBefore('?') ?: ""
+
+                    // Navigate if clicking a different screen
+                    if (currentBaseRoute != targetRoute) {
+                        navController.navigate(targetRoute) {
+                            // Pop up to login to maintain clean back stack
+                            popUpTo("login") {
                                 saveState = true
                             }
+                            // Avoid multiple copies of same destination
                             launchSingleTop = true
-                            restoreState = true
+                            // Don't restore state for Home to ensure fresh map without old pins
+                            restoreState = targetRoute != "home"
                         }
                     }
                 }

@@ -1,14 +1,17 @@
 package com.prog7314.geoquest.data.repo
 
+import android.content.Context
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.prog7314.geoquest.data.data.UserData
+import com.prog7314.geoquest.data.preferences.UserPreferences
+import com.prog7314.geoquest.utils.NetworkHelper
 import kotlinx.coroutines.tasks.await
 
-class UserRepo {
+class UserRepo(private val context: Context? = null) {
 
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
@@ -74,6 +77,11 @@ class UserRepo {
             val userDataWithId = userData.copy(id = userId)
             usersCollection.document(userId).set(userDataWithId).await()
 
+            // Cache credentials for offline use
+            context?.let {
+                UserPreferences.saveUserData(it, userDataWithId, password)
+            }
+
             Result.success(userDataWithId)
         } catch (e: Exception) {
             Result.failure(e)
@@ -82,7 +90,17 @@ class UserRepo {
 
     suspend fun loginUser(email: String, password: String): Result<UserData> {
         return try {
-            // Sign in with Firebase Auth
+            // Check if network is available
+            val isOnline = context?.let { NetworkHelper.isNetworkAvailable(it) } ?: true
+
+            if (!isOnline) {
+                // Try offline login with cached credentials
+                Log.d(TAG, "No network available, attempting offline login")
+                return loginOffline(email, password)
+            }
+
+            // Online login
+            Log.d(TAG, "Network available, attempting online login")
             val authResult = auth.signInWithEmailAndPassword(email, password).await()
             val userId = authResult.user?.uid ?: throw Exception("Login failed")
 
@@ -91,7 +109,98 @@ class UserRepo {
             val userData = doc.toObject(UserData::class.java)?.copy(id = userId)
                 ?: throw Exception("User profile not found")
 
+            // Cache credentials for offline use
+            context?.let {
+                UserPreferences.saveUserData(it, userData, password)
+            }
+
             Result.success(userData)
+        } catch (e: Exception) {
+            Log.e(TAG, "Online login failed", e)
+
+            // If online login fails, try offline login as fallback
+            if (context != null) {
+                Log.d(TAG, "Attempting offline login as fallback")
+                return loginOffline(email, password)
+            }
+
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Login using cached credentials (offline mode)
+     */
+    private fun loginOffline(email: String, password: String): Result<UserData> {
+        return try {
+            if (context == null) {
+                throw Exception("Offline login not available")
+            }
+
+            val cachedUserData = UserPreferences.getCachedUserData(context)
+                ?: throw Exception("No cached credentials found. Please connect to the internet to login.")
+
+            val cachedPassword = UserPreferences.getCachedPassword(context)
+                ?: throw Exception("No cached credentials found. Please connect to the internet to login.")
+
+            // Verify email and password match cached credentials
+            if (cachedUserData.email.equals(email, ignoreCase = true) && cachedPassword == password) {
+                Log.d(TAG, "Offline login successful")
+                Result.success(cachedUserData)
+            } else {
+                throw Exception("Invalid credentials. Please connect to the internet to login.")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Offline login failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Login as guest (no authentication required)
+     */
+    fun loginAsGuest(): Result<UserData> {
+        return try {
+            if (context == null) {
+                throw Exception("Guest login not available")
+            }
+
+            UserPreferences.setGuestMode(context, true)
+            val guestUser = UserPreferences.getCachedUserData(context)
+                ?: throw Exception("Failed to create guest user")
+
+            Log.d(TAG, "Guest login successful")
+            Result.success(guestUser)
+        } catch (e: Exception) {
+            Log.e(TAG, "Guest login failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Auto sign-in with cached credentials
+     */
+    suspend fun autoSignIn(): Result<UserData> {
+        return try {
+            if (context == null) {
+                throw Exception("Auto sign-in not available")
+            }
+
+            // If guest mode is set, do NOT auto sign-in as guest; require explicit user action
+            if (UserPreferences.isGuestMode(context)) {
+                throw Exception("Guest mode requires explicit selection")
+            }
+
+            if (!UserPreferences.isAutoSignInEnabled(context)) {
+                throw Exception("Auto sign-in is disabled")
+            }
+
+            val cachedUserData = UserPreferences.getCachedUserData(context)
+                ?: throw Exception("No cached user data found")
+            val cachedPassword = UserPreferences.getCachedPassword(context)
+                ?: throw Exception("No cached password found")
+
+            return loginUser(cachedUserData.email, cachedPassword)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -165,5 +274,9 @@ class UserRepo {
 
     fun logoutUser() {
         auth.signOut()
+        // Clear cached credentials
+        context?.let {
+            UserPreferences.clearAll(it)
+        }
     }
 }

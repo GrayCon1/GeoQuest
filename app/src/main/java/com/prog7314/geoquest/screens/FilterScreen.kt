@@ -254,15 +254,23 @@ fun FilterTypeButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
+        modifier = modifier.height(56.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isSelected) Color(0xFF2C3E50) else Color.White,
-            contentColor = if (isSelected) Color.White else Color(0xFF2C3E50)
+            containerColor = if (isSelected) Color(0xFF64B5F6) else Color.White
         ),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(2.dp, Color(0xFF2C3E50))
+        shape = RoundedCornerShape(12.dp),
+        border = if (!isSelected) BorderStroke(2.dp, Color(0xFFE0E0E0)) else null,
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = if (isSelected) 2.dp else 0.dp,
+            pressedElevation = 4.dp
+        )
     ) {
-        Text(text)
+        Text(
+            text = text,
+            color = if (isSelected) Color.White else Color(0xFF757575),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp
+        )
     }
 }
 

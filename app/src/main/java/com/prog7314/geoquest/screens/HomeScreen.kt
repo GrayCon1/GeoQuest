@@ -6,31 +6,21 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -41,14 +31,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
@@ -80,11 +68,12 @@ fun HomeScreen(
     desc: String?
 ) {
     val locationViewModel: LocationViewModel = viewModel()
-    MapScreen(userViewModel, locationViewModel, lat, lng, name, desc)
+    MapScreen(navController, userViewModel, locationViewModel, lat, lng, name, desc)
 }
 
 @Composable
 fun MapScreen(
+    navController: NavController,
     userViewModel: UserViewModel,
     locationViewModel: LocationViewModel,
     initialLat: Double?,
@@ -95,6 +84,9 @@ fun MapScreen(
     val context = LocalContext.current
     val currentDeviceLocation = remember { mutableStateOf<LatLng?>(null) }
     val locations by locationViewModel.locations.collectAsState()
+    val isOnline by locationViewModel.isOnline.collectAsState()
+    val unsyncedCount by locationViewModel.unsyncedCount.collectAsState()
+    val syncStatus by locationViewModel.syncStatus.collectAsState()
 
     var hasLocationPermission by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }
@@ -109,7 +101,7 @@ fun MapScreen(
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
     }
 
-    LaunchedEffect(isFromLogbook) {
+    LaunchedEffect(Unit) {
         hasLocationPermission = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
@@ -120,6 +112,9 @@ fun MapScreen(
                 Manifest.permission.ACCESS_COARSE_LOCATION
             ))
         }
+    }
+
+    LaunchedEffect(initialLat, initialLng, initialName, initialDesc) {
         if (isFromLogbook) {
             locationViewModel.clearLocations()
         } else {
@@ -142,8 +137,8 @@ fun MapScreen(
         }
     }
 
-    val initialCameraPos = if (isFromLogbook) {
-        LatLng(initialLat!!, initialLng!!)
+    val initialCameraPos = if (isFromLogbook && initialLat != null && initialLng != null) {
+        LatLng(initialLat, initialLng)
     } else {
         currentDeviceLocation.value ?: LatLng(-33.974273681640625, 18.46971893310547)
     }
@@ -152,7 +147,7 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(initialCameraPos, 15f)
     }
 
-    LaunchedEffect(currentDeviceLocation.value, isFromLogbook) {
+    LaunchedEffect(currentDeviceLocation.value, initialLat, initialLng) {
         // Only move to current location if no initial position was provided from logbook
         if (!isFromLogbook) {
             currentDeviceLocation.value?.let {
@@ -163,9 +158,12 @@ fun MapScreen(
                 }
             }
         } else {
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngZoom(LatLng(initialLat!!, initialLng!!), 15f)
-            )
+            @Suppress("SENSELESS_COMPARISON")
+            if (initialLat != null && initialLng != null) {
+                cameraPositionState.animate(
+                    CameraUpdateFactory.newLatLngZoom(LatLng(initialLat, initialLng), 15f)
+                )
+            }
         }
     }
 
@@ -183,14 +181,17 @@ fun MapScreen(
                     strokeWidth = 2f
                 )
             }
-            if (isFromLogbook) {
+            @Suppress("SENSELESS_COMPARISON")
+            if (isFromLogbook && initialLat != null && initialLng != null) {
+                @Suppress("DEPRECATION")
                 Marker(
-                    state = rememberMarkerState(position = LatLng(initialLat!!, initialLng!!)),
+                    state = rememberMarkerState(position = LatLng(initialLat, initialLng)),
                     title = initialName,
                     snippet = initialDesc
                 )
             } else {
                 locations.forEach { locationData ->
+                    @Suppress("DEPRECATION")
                     Marker(
                         state = rememberMarkerState(position = LatLng(locationData.latitude, locationData.longitude)),
                         title = locationData.name,
@@ -240,6 +241,59 @@ fun MapScreen(
             }
         }
 
+        // Sync Status Indicator
+        Card(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 72.dp)
+                .clickable { if (unsyncedCount > 0) locationViewModel.syncNow() },
+            colors = CardDefaults.cardColors(
+                containerColor = if (isOnline) Color(0xFF4CAF50).copy(alpha = 0.9f) else Color(0xFFFF9800).copy(alpha = 0.9f)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (isOnline) Icons.Default.Star else Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = if (isOnline) {
+                        if (unsyncedCount > 0) "Tap to sync ($unsyncedCount items)" else "Online"
+                    } else {
+                        "Offline mode"
+                    },
+                    color = Color.White,
+                    fontSize = 14.sp
+                )
+            }
+        }
+
+        // Sync Status Message
+        syncStatus?.let { status ->
+            Card(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .clickable { locationViewModel.clearSyncStatus() },
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White.copy(alpha = 0.95f)
+                )
+            ) {
+                Text(
+                    text = status,
+                    modifier = Modifier.padding(16.dp),
+                    color = Color.Black,
+                    fontSize = 14.sp
+                )
+            }
+        }
+
         if (showFilter) {
             FilterScreen(
                 onDismiss = { showFilter = false },
@@ -264,9 +318,19 @@ fun MapScreen(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.5f))
                     .clickable(onClick = { showNotifications = false }),
-                contentAlignment = Alignment.TopCenter
+                contentAlignment = Alignment.Center
             ) {
-                NotificationScreen(navController = rememberNavController())
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                        .clickable(enabled = false) { }
+                ) {
+                    NotificationScreen(
+                        navController = navController,
+                        userViewModel = userViewModel
+                    )
+                }
             }
         }
     }
@@ -299,92 +363,3 @@ private fun startLocationUpdates(
 }
 
 
-@Composable
-fun NotificationOverlay(onDismiss: () -> Unit) {
-    val notifications = remember {
-        listOf(
-            Notification(
-                1,
-                NotificationType.LOCATION,
-                "Location:",
-                "Location 1 has been added!",
-                Icons.Default.LocationOn
-            ),
-            Notification(
-                2,
-                NotificationType.POINTS,
-                "Points:",
-                "You have earned +5 points",
-                Icons.Default.Star
-            ),
-            Notification(
-                3,
-                NotificationType.LOCATION,
-                "Location:",
-                "Location 2 has been added!",
-                Icons.Default.LocationOn
-            ),
-            Notification(
-                4,
-                NotificationType.POINTS,
-                "Points:",
-                "You have earned +5 points",
-                Icons.Default.Star
-            )
-        )
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
-            .clickable(onClick = onDismiss),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .clickable(onClick = {}), // Prevent dismiss when clicking inside
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-            ) {
-                Button(
-                    onClick = { /* Handle clear notifications */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(2.dp, Color(0xFF4A90E2))
-                ) {
-                    Text(
-                        text = "Clear Notification",
-                        color = Color(0xFF4A90E2),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.heightIn(max = 400.dp)
-                ) {
-                    items(notifications) { notification ->
-                        NotificationCard(notification = notification)
-                    }
-                }
-            }
-        }
-    }
-}

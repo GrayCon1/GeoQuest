@@ -1,6 +1,7 @@
 package com.prog7314.geoquest.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -49,6 +52,7 @@ import com.prog7314.geoquest.components.common.GoogleAuthHelper
 import com.prog7314.geoquest.components.textfields.StyledTextField
 import com.prog7314.geoquest.data.model.UserViewModel
 import com.prog7314.geoquest.data.preferences.BiometricPreferences
+import com.prog7314.geoquest.utils.NetworkHelper
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
@@ -71,6 +75,12 @@ fun LoginScreen(
     val loginSuccess by userViewModel.loginSuccess.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    // Check network status
+    var isOnline by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        isOnline = NetworkHelper.isNetworkAvailable(context)
+    }
 
     // Biometric authentication
     val isBiometricAvailable = remember { BiometricAuthHelper.isBiometricAvailable(context) }
@@ -127,6 +137,33 @@ fun LoginScreen(
 
     AuthCard(modifier = Modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.height(40.dp))
+
+        // Offline indicator
+        if (!isOnline) {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFFFCC80))
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiOff,
+                    contentDescription = "Offline",
+                    tint = Color(0xFFE65100),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = "You're offline - Limited features available",
+                    fontSize = 12.sp,
+                    color = Color(0xFFE65100)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         Text(
             text = "Welcome to",
             fontSize = 28.sp,
@@ -267,6 +304,38 @@ fun LoginScreen(
         }
 
         Spacer(modifier = Modifier.weight(1f))
+
+        // Guest Mode Button
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    userViewModel.loginAsGuest()
+                }
+                .padding(vertical = 16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.PersonOff,
+                contentDescription = "Guest Mode",
+                modifier = Modifier.size(32.dp),
+                tint = Color(0xFF757575)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Continue as Guest",
+                fontSize = 14.sp,
+                color = Color(0xFF757575),
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "Access app without signing in",
+                fontSize = 11.sp,
+                color = Color(0xFFBDBDBD)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         Row(
             horizontalArrangement = Arrangement.Center,
