@@ -7,6 +7,15 @@ plugins {
     id("com.google.devtools.ksp") version "2.1.0-1.0.29"
 }
 
+import java.util.Properties
+
+// Load keystore properties
+val keystorePropertiesFile = file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
     namespace = "com.prog7314.geoquest"
     compileSdk = 36
@@ -21,6 +30,26 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            val storeFileProp = keystoreProperties["storeFile"] as String?
+            val keyAliasProp = keystoreProperties["keyAlias"] as String?
+            val storePasswordProp = keystoreProperties["storePassword"] as String?
+            val keyPasswordProp = keystoreProperties["keyPassword"] as String?
+            
+            if (storeFileProp != null && keyAliasProp != null && 
+                storePasswordProp != null && keyPasswordProp != null) {
+                val keystoreFile = file(storeFileProp)
+                if (keystoreFile.exists()) {
+                    storeFile = keystoreFile
+                    keyAlias = keyAliasProp
+                    storePassword = storePasswordProp
+                    keyPassword = keyPasswordProp
+                }
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -28,6 +57,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -68,7 +98,6 @@ dependencies {
     implementation(libs.androidx.navigation.dynamic.features.fragment)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.compose.material3)
     implementation(libs.maps.compose.v6120)
     implementation(libs.play.services.location)
     implementation(libs.androidx.compose.foundation)
@@ -83,6 +112,7 @@ dependencies {
     // Room Database for offline storage
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.compose.ui.text)
     ksp(libs.androidx.room.compiler)
 
     implementation(platform(libs.firebase.bom))

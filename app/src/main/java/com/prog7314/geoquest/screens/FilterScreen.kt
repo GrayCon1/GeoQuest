@@ -23,6 +23,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -35,7 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.prog7314.geoquest.R
 import android.widget.Toast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,12 +62,6 @@ fun FilterScreen(
     val fromDatePickerState = rememberDatePickerState()
     val toDatePickerState = rememberDatePickerState()
 
-    fun formatMillis(millis: Long?): String {
-        if (millis == null) return ""
-        val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        return formatter.format(Date(millis))
-    }
-
     if (showFromDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showFromDatePicker = false },
@@ -73,12 +70,12 @@ fun FilterScreen(
                     fromDate = fromDatePickerState.selectedDateMillis
                     showFromDatePicker = false
                 }) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showFromDatePicker = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         ) {
@@ -94,12 +91,12 @@ fun FilterScreen(
                     toDate = toDatePickerState.selectedDateMillis
                     showToDatePicker = false
                 }) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showToDatePicker = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         ) {
@@ -126,28 +123,30 @@ fun FilterScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Filter",
-                    fontSize = 20.sp,
+                    text = stringResource(R.string.filter_title),
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2C3E50)
+                    color = Color(0xFF2C3E50),
+                    style = MaterialTheme.typography.headlineSmall
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
                 // Date section
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("FROM", fontWeight = FontWeight.Bold)
-                    Text("TO", fontWeight = FontWeight.Bold)
-                }
+                Text(
+                    text = "Date Range",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF2C3E50),
+                    modifier = Modifier.align(Alignment.Start),
+                    style = MaterialTheme.typography.titleMedium
+                )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -162,10 +161,10 @@ fun FilterScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.DateRange,
-                            contentDescription = "Select From Date",
+                            contentDescription = stringResource(R.string.select_from_date),
                         )
                         Text(
-                            formatMillis(fromDate).ifEmpty { "From" },
+                            fromDate?.let { formatMillis(it) } ?: stringResource(R.string.from_date),
                             modifier = Modifier.padding(start = 4.dp)
                         )
                     }
@@ -178,24 +177,27 @@ fun FilterScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.DateRange,
-                            contentDescription = "Select To Date",
+                            contentDescription = stringResource(R.string.select_to_date),
                         )
                         Text(
-                            formatMillis(toDate).ifEmpty { "To" },
+                            toDate?.let { formatMillis(it) } ?: stringResource(R.string.to_date),
                             modifier = Modifier.padding(start = 4.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
                 Text(
-                    "TYPE",
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.Start)
+                    text = "Visibility Type",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF2C3E50),
+                    modifier = Modifier.align(Alignment.Start),
+                    style = MaterialTheme.typography.titleMedium
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Type selection
                 Row(
@@ -203,20 +205,20 @@ fun FilterScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     FilterTypeButton(
-                        text = "Public",
+                        text = stringResource(R.string.public_visibility),
                         isSelected = selectedType == "Public",
                         onClick = { selectedType = "Public" },
                         modifier = Modifier.weight(1f)
                     )
                     FilterTypeButton(
-                        text = "Private",
+                        text = stringResource(R.string.private_visibility),
                         isSelected = selectedType == "Private",
                         onClick = { selectedType = "Private" },
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(32.dp))
 
                 Button(
                     onClick = {
@@ -224,7 +226,7 @@ fun FilterScreen(
                             // Show error - from date must be before to date
                             Toast.makeText(
                                 context,
-                                "From date must be before To date",
+                                context.getString(R.string.error_from_date_before_to),
                                 Toast.LENGTH_SHORT
                             ).show()
                         } else {
@@ -232,13 +234,24 @@ fun FilterScreen(
                             onDismiss()
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2C3E50)
+                        containerColor = Color(0xFF64B5F6)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 2.dp,
+                        pressedElevation = 4.dp
                     )
                 ) {
-                    Text("Apply", color = Color.White)
+                    Text(
+                        text = stringResource(R.string.apply),
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
@@ -274,3 +287,8 @@ fun FilterTypeButton(
     }
 }
 
+private fun formatMillis(millis: Long?): String {
+    if (millis == null) return ""
+    val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    return formatter.format(Date(millis))
+}

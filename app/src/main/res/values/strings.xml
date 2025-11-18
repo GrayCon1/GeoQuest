@@ -1,4 +1,130 @@
 <resources>
     <string name="app_name">GeoQuest</string>
     <string name="default_web_client_id">325691994355-ju3ob66e7j4fddv8qlnqcfjk6visgvlq.apps.googleusercontent.com</string>
+    
+    <!-- Login Screen -->
+    <string name="welcome_to">Welcome to</string>
+    <string name="offline_message">You\'re offline - Limited features available</string>
+    <string name="enter_email">Enter your email</string>
+    <string name="enter_password">Enter your password</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="login">Login</string>
+    <string name="or_login_with">Or Login with</string>
+    <string name="login_with_biometric">Login with Biometric</string>
+    <string name="continue_as_guest">Continue as Guest</string>
+    <string name="guest_mode_description">Access app without signing in</string>
+    <string name="dont_have_account">Don\'t have an account?</string>
+    <string name="register_now">Register Now</string>
+    <string name="login_successful">Login successful!</string>
+    <string name="biometric_auth_successful">Biometric authentication successful! Please enter your password.</string>
+    <string name="authentication_successful">Authentication successful! Please enter your password.</string>
+    
+    <!-- Register Screen -->
+    <string name="create_account">Create Account</string>
+    <string name="register_to_explore">Register to get exploring</string>
+    <string name="name_surname">Name &amp; Surname</string>
+    <string name="username">Username</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm password</string>
+    <string name="register">Register</string>
+    <string name="or_register_with">Or Register with</string>
+    <string name="already_have_account">Already have an account?</string>
+    <string name="login_now">Login Now</string>
+    <string name="registration_successful">Registration successful!</string>
+    
+    <!-- Home Screen -->
+    <string name="filter">Filter</string>
+    <string name="notifications">Notifications</string>
+    <string name="online">Online</string>
+    <string name="offline_mode">Offline mode</string>
+    <string name="tap_to_sync">Tap to sync (%1$d items)</string>
+    
+    <!-- Logbook Screen -->
+    <string name="my_logbook">My Logbook</string>
+    <string name="add_location">Add Location</string>
+    <string name="custom_date">Custom Date</string>
+    <string name="clear_dates">Clear Dates</string>
+    <string name="no_locations_found">No locations found for this filter.\nTap the \'+\' button to add one!</string>
+    <string name="loading_locations">Loading locations…</string>
+    <string name="all">All</string>
+    <string name="public_visibility">Public</string>
+    <string name="private_visibility">Private</string>
+    
+    <!-- Add Screen -->
+    <string name="name">Name</string>
+    <string name="description">Description</string>
+    <string name="location_preview">Location Preview</string>
+    <string name="new_location">New Location</string>
+    <string name="tap_to_save">Tap to save</string>
+    <string name="tap_to_add_image">Tap To Add Image</string>
+    <string name="image_selected">Image Selected</string>
+    <string name="getting_location">Getting your location…</string>
+    <string name="location_saved">Location saved successfully!</string>
+    <string name="error_user_not_logged_in">Error: User not logged in.</string>
+    <string name="error_could_not_get_location">Error: Could not get current location.</string>
+    <string name="error_enter_location_name">Please enter a location name</string>
+    <string name="error_enter_description">Please enter a description</string>
+    <string name="error_select_image">Please select an image</string>
+    
+    <!-- Filter Screen -->
+    <string name="filter_title">Filter</string>
+    <string name="from">FROM</string>
+    <string name="to">TO</string>
+    <string name="from_date">From</string>
+    <string name="to_date">To</string>
+    <string name="type">TYPE</string>
+    <string name="apply">Apply</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="select_from_date">Select From Date</string>
+    <string name="select_to_date">Select To Date</string>
+    <string name="error_from_date_before_to">From date must be before To date</string>
+    
+    <!-- Settings Screen -->
+    <string name="settings">Settings</string>
+    <string name="user">User</string>
+    <string name="date_created">Date Created</string>
+    <string name="current_password">Current Password</string>
+    <string name="new_password">New Password</string>
+    <string name="language">Language</string>
+    <string name="language_options">Language Options</string>
+    <string name="biometric_authentication">Biometric Authentication</string>
+    <string name="enabled">Enabled</string>
+    <string name="disabled">Disabled</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="save">Save</string>
+    <string name="guest_mode">Guest Mode</string>
+    <string name="guest_mode_description_full">You\'re exploring as a guest. Some features are limited.</string>
+    <string name="login_button">Login</string>
+    <string name="register_button">Register</string>
+    <string name="online_unlock">Online now – unlock syncing &amp; achievements!</string>
+    <string name="offline_prompt">Offline – prompt will enable when online.</string>
+    <string name="create_account_description">Create an account to save progress, restore on any device, and receive location alerts.</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="loading_user_data">Loading user data…</string>
+    <string name="please_log_in">Please log in to access settings</string>
+    <string name="signed_out_successfully">Signed out successfully</string>
+    <string name="profile_updated_successfully">Profile updated successfully</string>
+    <string name="biometric_enabled">Biometric authentication enabled</string>
+    <string name="biometric_disabled">Biometric authentication disabled</string>
+    <string name="error_current_password_required">Current password is required to save changes</string>
+    <string name="error_password_min_length">New password must be at least 6 characters</string>
+    <string name="error_no_changes">No changes were made</string>
+    
+    <!-- Notification Screen -->
+    <string name="notifications_title">Notifications</string>
+    <string name="mark_all_read">Mark all read</string>
+    <string name="clear_all">Clear all</string>
+    <string name="no_notifications">No notifications</string>
+    <string name="no_notifications_description">You don\'t have any notifications yet.</string>
+    
+    <!-- Validation Errors -->
+    <string name="error_enter_email">Please enter your email</string>
+    <string name="error_enter_password">Please enter your password</string>
+    <string name="error_valid_email">Please enter a valid email address</string>
+    <string name="error_enter_full_name">Please enter your full name</string>
+    <string name="error_enter_username">Please enter a username</string>
+    <string name="error_password_length">Password must be at least 6 characters</string>
+    <string name="error_passwords_match">Passwords do not match</string>
 </resources>

@@ -13,18 +13,18 @@ interface LocationDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLocations(locations: List<LocationEntity>)
 
-    // Get all locations for a user
-    @Query("SELECT * FROM locations WHERE userId = :userId AND isDeleted = 0 ORDER BY dateAdded DESC")
+    // Get all locations for a user (with DISTINCT to prevent duplicates)
+    @Query("SELECT DISTINCT * FROM locations WHERE userId = :userId AND isDeleted = 0 ORDER BY dateAdded DESC")
     fun getUserLocations(userId: String): Flow<List<LocationEntity>>
 
-    @Query("SELECT * FROM locations WHERE userId = :userId AND isDeleted = 0 ORDER BY dateAdded DESC")
+    @Query("SELECT DISTINCT * FROM locations WHERE userId = :userId AND isDeleted = 0 ORDER BY dateAdded DESC")
     suspend fun getUserLocationsOnce(userId: String): List<LocationEntity>
 
-    // Get all public locations
-    @Query("SELECT * FROM locations WHERE visibility = 'public' AND isDeleted = 0 ORDER BY dateAdded DESC")
+    // Get all public locations (with DISTINCT to prevent duplicates)
+    @Query("SELECT DISTINCT * FROM locations WHERE visibility = 'public' AND isDeleted = 0 ORDER BY dateAdded DESC")
     fun getAllPublicLocations(): Flow<List<LocationEntity>>
 
-    @Query("SELECT * FROM locations WHERE visibility = 'public' AND isDeleted = 0 ORDER BY dateAdded DESC")
+    @Query("SELECT DISTINCT * FROM locations WHERE visibility = 'public' AND isDeleted = 0 ORDER BY dateAdded DESC")
     suspend fun getAllPublicLocationsOnce(): List<LocationEntity>
 
     // Get unsynced locations (for sync)
@@ -35,9 +35,9 @@ interface LocationDao {
     @Query("SELECT * FROM locations WHERE isDeleted = 1 AND isSynced = 0")
     suspend fun getDeletedUnsyncedLocations(): List<LocationEntity>
 
-    // Get filtered locations
+    // Get filtered locations (with DISTINCT to prevent duplicates)
     @Query("""
-        SELECT * FROM locations 
+        SELECT DISTINCT * FROM locations 
         WHERE userId = :userId 
         AND isDeleted = 0
         AND (:visibility IS NULL OR visibility = :visibility)
@@ -52,9 +52,21 @@ interface LocationDao {
         endDate: Long?
     ): List<LocationEntity>
 
-    // Get location by ID
+    // Get location by ID (only non-deleted)
     @Query("SELECT * FROM locations WHERE id = :locationId AND isDeleted = 0")
     suspend fun getLocationById(locationId: String): LocationEntity?
+
+    // Get location by ID (including deleted, for conflict checking)
+    @Query("SELECT * FROM locations WHERE id = :locationId")
+    suspend fun getLocationByIdIncludingDeleted(locationId: String): LocationEntity?
+
+    // Get all existing location IDs (for duplicate checking)
+    @Query("SELECT id FROM locations WHERE isDeleted = 0")
+    suspend fun getAllLocationIds(): List<String>
+
+    // Check if location is marked as deleted
+    @Query("SELECT COUNT(*) > 0 FROM locations WHERE id = :locationId AND isDeleted = 1")
+    suspend fun isLocationDeleted(locationId: String): Boolean
 
     // Mark location as synced
     @Query("UPDATE locations SET isSynced = 1 WHERE id = :locationId")

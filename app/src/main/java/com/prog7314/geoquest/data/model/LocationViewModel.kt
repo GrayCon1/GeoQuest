@@ -1,6 +1,7 @@
 package com.prog7314.geoquest.data.model
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.prog7314.geoquest.data.data.LocationData
@@ -42,6 +43,10 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
     private val _syncStatus = MutableStateFlow<String?>(null)
     val syncStatus: StateFlow<String?> = _syncStatus.asStateFlow()
 
+    // Track recently deleted location IDs to prevent them from being re-inserted
+    private val _deletedLocationIds = MutableStateFlow<Set<String>>(emptySet())
+    val deletedLocationIds: StateFlow<Set<String>> = _deletedLocationIds.asStateFlow()
+
     init {
         checkConnectivity()
         updateUnsyncedCount()
@@ -53,7 +58,10 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
 
     private fun updateUnsyncedCount() {
         viewModelScope.launch {
-            _unsyncedCount.value = syncManager.getUnsyncedCount()
+            // Count both unsynced locations and unsynced deletions
+            val unsyncedLocations = locationDao.getUnsyncedLocations().size
+            val unsyncedDeletions = locationDao.getDeletedUnsyncedLocations().size
+            _unsyncedCount.value = unsyncedLocations + unsyncedDeletions
         }
     }
 
@@ -90,6 +98,17 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                 } else {
                     // Offline: Save to local DB as unsynced
                     locationDao.insertLocation(location.toLocationEntity(isSynced = false))
+                    
+                    // Try to create notification (will be queued if Firestore offline persistence is enabled)
+                    notificationRepo.notifyLocationAdded(
+                        userId = location.userId,
+                        locationId = location.id,
+                        locationName = location.name
+                    ).onFailure { e ->
+                        // Notification creation failed offline - this is expected if Firestore offline persistence is not enabled
+                        // The notification will be created when syncing online
+                    }
+                    
                     _syncStatus.value = "Location saved offline (will sync when online)"
                 }
 
@@ -114,8 +133,32 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                         val result = locationRepo.getAllLocations()
                         if (result.isSuccess) {
                             val firebaseLocations = result.getOrNull() ?: emptyList()
-                            // Save to local DB
-                            locationDao.insertLocations(firebaseLocations.map { it.toLocationEntity(isSynced = true) })
+                            // Filter out locations that are marked as deleted locally or in deleted set
+                            val deletedIds = _deletedLocationIds.value
+                            val locationsToInsert = firebaseLocations.filter { location ->
+                                !locationDao.isLocationDeleted(location.id) && location.id !in deletedIds
+                            }
+                            
+                            // Get all existing location IDs to prevent duplicates
+                            val existingIds = locationDao.getAllLocationIds().toSet()
+                            
+                            // Only update/insert locations from Firebase - preserve existing local unsynced locations
+                            val locationsToUpdate = locationsToInsert.filter { firebaseLocation ->
+                                if (firebaseLocation.id in existingIds) {
+                                    val existingLocation = locationDao.getLocationByIdIncludingDeleted(firebaseLocation.id)
+                                    existingLocation?.isSynced == true || existingLocation == null
+                                } else {
+                                    // New location - can insert (but not if it's in deleted set)
+                                    firebaseLocation.id !in deletedIds
+                                }
+                            }
+                            
+                            // Remove duplicates by ID before inserting
+                            val uniqueLocationsToUpdate = locationsToUpdate.distinctBy { it.id }
+                            
+                            if (uniqueLocationsToUpdate.isNotEmpty()) {
+                                locationDao.insertLocations(uniqueLocationsToUpdate.map { it.toLocationEntity(isSynced = true) })
+                            }
                         }
                     } catch (e: Exception) {
                         // If Firebase fails, we'll use local data
@@ -124,7 +167,12 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
 
                 // Load from local DB
                 val entities = locationDao.getAllPublicLocationsOnce()
-                _locations.value = entities.map { it.toLocationData() }
+                // Filter out deleted location IDs and ensure no duplicates
+                val deletedIds = _deletedLocationIds.value
+                _locations.value = entities
+                    .map { it.toLocationData() }
+                    .filter { it.id !in deletedIds }
+                    .distinctBy { it.id }
             } catch (e: Exception) {
                 _errorMessage.value = e.message
             } finally {
@@ -145,8 +193,32 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                         val result = locationRepo.getUserLocations(userId)
                         if (result.isSuccess) {
                             val firebaseLocations = result.getOrNull() ?: emptyList()
-                            // Save to local DB
-                            locationDao.insertLocations(firebaseLocations.map { it.toLocationEntity(isSynced = true) })
+                            // Filter out locations that are marked as deleted locally or in deleted set
+                            val deletedIds = _deletedLocationIds.value
+                            val locationsToInsert = firebaseLocations.filter { location ->
+                                !locationDao.isLocationDeleted(location.id) && location.id !in deletedIds
+                            }
+                            
+                            // Get all existing location IDs to prevent duplicates
+                            val existingIds = locationDao.getAllLocationIds().toSet()
+                            
+                            // Only update/insert locations from Firebase - preserve existing local unsynced locations
+                            val locationsToUpdate = locationsToInsert.filter { firebaseLocation ->
+                                if (firebaseLocation.id in existingIds) {
+                                    val existingLocation = locationDao.getLocationByIdIncludingDeleted(firebaseLocation.id)
+                                    existingLocation?.isSynced == true || existingLocation == null
+                                } else {
+                                    // New location - can insert (but not if it's in deleted set)
+                                    firebaseLocation.id !in deletedIds
+                                }
+                            }
+                            
+                            // Remove duplicates by ID before inserting
+                            val uniqueLocationsToUpdate = locationsToUpdate.distinctBy { it.id }
+                            
+                            if (uniqueLocationsToUpdate.isNotEmpty()) {
+                                locationDao.insertLocations(uniqueLocationsToUpdate.map { it.toLocationEntity(isSynced = true) })
+                            }
                         }
                     } catch (e: Exception) {
                         // If Firebase fails, we'll use local data
@@ -155,7 +227,12 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
 
                 // Load from local DB
                 val entities = locationDao.getUserLocationsOnce(userId)
-                _locations.value = entities.map { it.toLocationData() }
+                // Filter out deleted location IDs and ensure no duplicates
+                val deletedIds = _deletedLocationIds.value
+                _locations.value = entities
+                    .map { it.toLocationData() }
+                    .filter { it.id !in deletedIds }
+                    .distinctBy { it.id }
             } catch (e: Exception) {
                 _errorMessage.value = e.message
             } finally {
@@ -175,7 +252,32 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                         val result = locationRepo.getUserLocationsByDateRange(userId, startDate, endDate)
                         if (result.isSuccess) {
                             val firebaseLocations = result.getOrNull() ?: emptyList()
-                            locationDao.insertLocations(firebaseLocations.map { it.toLocationEntity(isSynced = true) })
+                            // Filter out locations that are marked as deleted locally or in deleted set
+                            val deletedIds = _deletedLocationIds.value
+                            val locationsToInsert = firebaseLocations.filter { location ->
+                                !locationDao.isLocationDeleted(location.id) && location.id !in deletedIds
+                            }
+                            
+                            // Get all existing location IDs to prevent duplicates
+                            val existingIds = locationDao.getAllLocationIds().toSet()
+                            
+                            // Only update/insert locations from Firebase - preserve existing local unsynced locations
+                            val locationsToUpdate = locationsToInsert.filter { firebaseLocation ->
+                                if (firebaseLocation.id in existingIds) {
+                                    val existingLocation = locationDao.getLocationByIdIncludingDeleted(firebaseLocation.id)
+                                    existingLocation?.isSynced == true || existingLocation == null
+                                } else {
+                                    // New location - can insert (but not if it's in deleted set)
+                                    firebaseLocation.id !in deletedIds
+                                }
+                            }
+                            
+                            // Remove duplicates by ID before inserting
+                            val uniqueLocationsToUpdate = locationsToUpdate.distinctBy { it.id }
+                            
+                            if (uniqueLocationsToUpdate.isNotEmpty()) {
+                                locationDao.insertLocations(uniqueLocationsToUpdate.map { it.toLocationEntity(isSynced = true) })
+                            }
                         }
                     } catch (e: Exception) {
                         // Use local data
@@ -183,7 +285,12 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                 }
 
                 val entities = locationDao.getFilteredLocations(userId, null, startDate, endDate)
-                _locations.value = entities.map { it.toLocationData() }
+                // Filter out deleted location IDs and ensure no duplicates
+                val deletedIds = _deletedLocationIds.value
+                _locations.value = entities
+                    .map { it.toLocationData() }
+                    .filter { it.id !in deletedIds }
+                    .distinctBy { it.id }
             } catch (e: Exception) {
                 _errorMessage.value = e.message
             } finally {
@@ -203,17 +310,52 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                         val result = locationRepo.getFilteredUserLocations(userId, startDate, endDate, visibility)
                         if (result.isSuccess) {
                             val firebaseLocations = result.getOrNull() ?: emptyList()
-                            locationDao.insertLocations(firebaseLocations.map { it.toLocationEntity(isSynced = true) })
+                            // Filter out locations that are marked as deleted locally or in deleted set
+                            val deletedIds = _deletedLocationIds.value
+                            val locationsToInsert = firebaseLocations.filter { location ->
+                                !locationDao.isLocationDeleted(location.id) && location.id !in deletedIds
+                            }
+                            
+                            // Get all existing location IDs to prevent duplicates
+                            val existingIds = locationDao.getAllLocationIds().toSet()
+                            
+                            // Only update/insert locations from Firebase - preserve existing local unsynced locations
+                            val locationsToUpdate = locationsToInsert.filter { firebaseLocation ->
+                                if (firebaseLocation.id in existingIds) {
+                                    // Location exists - check if it's synced (can update) or unsynced (preserve)
+                                    val existingLocation = locationDao.getLocationByIdIncludingDeleted(firebaseLocation.id)
+                                    existingLocation?.isSynced == true || existingLocation == null
+                                } else {
+                                    // New location - can insert (but not if it's in deleted set)
+                                    firebaseLocation.id !in deletedIds
+                                }
+                            }
+                            
+                            // Remove duplicates by ID before inserting
+                            val uniqueLocationsToUpdate = locationsToUpdate.distinctBy { it.id }
+                            
+                            if (uniqueLocationsToUpdate.isNotEmpty()) {
+                                locationDao.insertLocations(uniqueLocationsToUpdate.map { it.toLocationEntity(isSynced = true) })
+                            }
                         }
                     } catch (e: Exception) {
                         // Use local data
                     }
                 }
 
+                // Query local database with the filter - this ensures only matching locations are returned
+                // This will include both synced and unsynced locations
                 val entities = locationDao.getFilteredLocations(userId, visibility, startDate, endDate)
-                _locations.value = entities.map { it.toLocationData() }
+                // Filter out deleted location IDs and ensure no duplicates
+                val deletedIds = _deletedLocationIds.value
+                _locations.value = entities
+                    .map { it.toLocationData() }
+                    .filter { it.id !in deletedIds }
+                    .distinctBy { it.id }
             } catch (e: Exception) {
                 _errorMessage.value = e.message
+                // Clear locations on error to avoid showing stale data
+                _locations.value = emptyList()
             } finally {
                 _isLoading.value = false
             }
@@ -235,10 +377,31 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                 val result = syncManager.syncAll()
                 if (result.isSuccess) {
                     val syncResult = result.getOrNull()
-                    _syncStatus.value = "Sync complete: ${syncResult?.uploadedCount ?: 0} uploaded, ${syncResult?.deletedCount ?: 0} deleted"
+                    val uploaded = syncResult?.uploadedCount ?: 0
+                    val deleted = syncResult?.deletedCount ?: 0
+                    val failed = syncResult?.failedCount ?: 0
+                    val errorMsg = syncResult?.errorMessage
+                    
+                    if (uploaded == 0 && deleted == 0 && failed == 0) {
+                        _syncStatus.value = "Nothing to sync - all items are up to date"
+                    } else {
+                        val statusParts = mutableListOf<String>()
+                        if (uploaded > 0) statusParts.add("$uploaded uploaded")
+                        if (deleted > 0) statusParts.add("$deleted deleted")
+                        if (failed > 0) statusParts.add("$failed failed")
+                        var status = "Sync complete: ${statusParts.joinToString(", ")}"
+                        if (errorMsg != null && failed > 0) {
+                            status += " ($errorMsg)"
+                        }
+                        _syncStatus.value = status
+                    }
                     updateUnsyncedCount()
                 } else {
-                    _syncStatus.value = "Sync failed: ${result.exceptionOrNull()?.message}"
+                    val error = result.exceptionOrNull()
+                    val errorMsg = error?.message ?: "Unknown error"
+                    _syncStatus.value = "Sync failed: $errorMsg"
+                    _errorMessage.value = errorMsg
+                    Log.e("LocationViewModel", "Sync failed", error)
                 }
             } catch (e: Exception) {
                 _syncStatus.value = "Sync failed: ${e.message}"
@@ -257,19 +420,25 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
             try {
                 checkConnectivity()
 
+                // Add to deleted IDs set immediately to prevent re-insertion
+                _deletedLocationIds.value = _deletedLocationIds.value + locationId
+
                 if (_isOnline.value) {
-                    // Online: Delete from Firebase first
+                    // Online: Try to delete from Firebase first
                     val result = locationRepo.deleteLocation(locationId)
                     if (result.isSuccess) {
-                        // Delete from local DB
+                        // Successfully deleted from Firebase - hard delete from local DB
                         locationDao.deleteLocation(locationId)
                         _syncStatus.value = "Location deleted"
                     } else {
-                        throw result.exceptionOrNull() ?: Exception("Failed to delete location")
+                        // Firebase deletion failed - soft delete locally for retry
+                        locationDao.softDeleteLocation(locationId)
+                        _syncStatus.value = "Location marked for deletion (will retry sync)"
+                        // Don't throw - allow the deletion to proceed locally
                     }
                 } else {
                     // Offline: Mark as deleted in local DB (soft delete for later sync)
-                    locationDao.deleteLocation(locationId)
+                    locationDao.softDeleteLocation(locationId)
                     _syncStatus.value = "Location deleted locally (will sync when online)"
                 }
 
@@ -278,6 +447,7 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                 updateUnsyncedCount()
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to delete location: ${e.message}"
+                // Keep the location ID in deleted set even if deletion failed
             }
         }
     }
@@ -288,5 +458,57 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
 
     fun clearLocations() {
         _locations.value = emptyList()
+    }
+
+    /**
+     * Permanently delete a location from local database (hard delete)
+     * Use this to remove cached locations that shouldn't exist
+     */
+    fun forceDeleteLocation(locationId: String) {
+        viewModelScope.launch {
+            try {
+                // Hard delete from local database
+                locationDao.deleteLocation(locationId)
+                // Also try to delete from Firebase if online
+                if (_isOnline.value) {
+                    try {
+                        locationRepo.deleteLocation(locationId)
+                    } catch (e: Exception) {
+                        // Ignore Firebase errors for force delete
+                    }
+                }
+                // Remove from current list
+                _locations.value = _locations.value.filter { it.id != locationId }
+                _syncStatus.value = "Location permanently deleted"
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to force delete location: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Clean up all deleted locations that have been synced
+     */
+    fun cleanupDeletedLocations() {
+        viewModelScope.launch {
+            try {
+                locationDao.cleanupSyncedDeletedLocations()
+                _syncStatus.value = "Cleaned up deleted locations"
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to cleanup deleted locations: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Get all deleted locations (for debugging/cleanup)
+     */
+    suspend fun getDeletedLocations(): List<LocationData> {
+        return try {
+            val deletedEntities = locationDao.getDeletedUnsyncedLocations()
+            deletedEntities.map { it.toLocationData() }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 }

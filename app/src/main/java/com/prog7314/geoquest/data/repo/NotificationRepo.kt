@@ -179,8 +179,8 @@ class NotificationRepo {
             val notification = NotificationData(
                 userId = userId,
                 type = NotificationType.LOCATION_ADDED,
-                title = "Location Added",
-                message = "You successfully added '$locationName'",
+                title = "New Location Added",
+                message = "A new location has been added",
                 locationId = locationId,
                 locationName = locationName
             )

@@ -1,0 +1,131 @@
+<resources>
+    <string name="app_name">GeoQuest</string>
+    <string name="default_web_client_id">325691994355-ju3ob66e7j4fddv8qlnqcfjk6visgvlq.apps.googleusercontent.com</string>
+    
+    <!-- Login Screen -->
+    <string name="welcome_to">Welkom by</string>
+    <string name="offline_message">Jy is aflyn - Limitied funksies beskikbaar</string>
+    <string name="enter_email">Voer u e-pos adres in</string>
+    <string name="enter_password">Voer wagwoord in</string>
+    <string name="forgot_password">Vergeet wagwoord?</string>
+    <string name="login">Teken in</string>
+    <string name="or_login_with">Of Login met</string>
+    <string name="login_with_biometric">Teken in met Biometrie</string>
+    <string name="continue_as_guest">Gaan voort as Gast</string>
+    <string name="guest_mode_description">Toegang tot die app sonder om in te teken</string>
+    <string name="dont_have_account">Het u nie \'n rekening nie?</string>
+    <string name="register_now">Registreer nou</string>
+    <string name="login_successful">Teken in suksesvol!</string>
+    <string name="biometric_auth_successful">Biometrie-verifikasie suksesvol! Voer wagwoord in.</string>
+    <string name="authentication_successful">Verifikasie suksesvol! Voer wagwoord in.</string>
+    
+    <!-- Register Screen -->
+    <string name="create_account">Skep Rekening</string>
+    <string name="register_to_explore">Registreer om te verkennen</string>
+    <string name="name_surname">Naam &amp; Surname</string>
+    <string name="username">Gebruikersnaam</string>
+    <string name="email">E-pos</string>
+    <string name="password">Wagwoord</string>
+    <string name="confirm_password">Wagwoord bevestig</string>
+    <string name="register">Registreer</string>
+    <string name="or_register_with">Of Registreer met</string>
+    <string name="already_have_account">Het u reeds \'n rekening?</string>
+    <string name="login_now">Teken in nou</string>
+    <string name="registration_successful">Registrasie suksesvol!</string>
+    
+    <!-- Home Screen -->
+    <string name="filter">Filter</string>
+    <string name="notifications">Kennisgewings</string>
+    <string name="online">Aanlyn</string>
+    <string name="offline_mode">Aflyn modus</string>
+    <string name="tap_to_sync">Klik om te synkroniseer (%1$d items)</string>
+    
+    <!-- Logbook Screen -->
+    <string name="my_logbook">My Logboek</string>
+    <string name="add_location">Voeg Lokaasie by</string>
+    <string name="custom_date">Eie Datum</string>
+    <string name="clear_dates">Maak leeg</string>
+    <string name="no_locations_found">Geen lokaasies gevind vir hierdie filter.\nKlik op die \'+\' knop om een by te voeg!</string>
+    <string name="loading_locations">Laai lokaasies…</string>
+    <string name="all">All</string>
+    <string name="public_visibility">Publiek</string>
+    <string name="private_visibility">Privaat</string>
+    
+    <!-- Add Screen -->
+    <string name="name">Naam</string>
+    <string name="description">Beskrywing</string>
+    <string name="location_preview">Lokaasie voorbeeld</string>
+    <string name="new_location">Nuwe Lokaasie</string>
+    <string name="tap_to_save">Klik om te stoor</string>
+    <string name="tap_to_add_image">Klik om \'n beeld by te voeg</string>
+    <string name="image_selected">Beeld gekies</string>
+    <string name="getting_location">Kry u lokaasie…</string>
+    <string name="location_saved">Lokaasie suksesvol gestoor!</string>
+    <string name="error_user_not_logged_in">Fout: Gebruiker is nie ingelog nie.</string>
+    <string name="error_could_not_get_location">Fout: Kon nie huidige lokaasie kry nie.</string>
+    <string name="error_enter_location_name">Voer \'n lokaasienaam in</string>
+    <string name="error_enter_description">Voer \'n beskrywing in</string>
+    <string name="error_select_image">Selekteer \'n beeld</string>
+    
+    <!-- Filter Screen -->
+    <string name="filter_title">Filter</string>
+    <string name="from">VAN</string>
+    <string name="to">NA</string>
+    <string name="from_date">Van</string>
+    <string name="to_date">Na</string>
+    <string name="type">TYP</string>
+    <string name="apply">Pas toe</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Kanselleer</string>
+    <string name="select_from_date">Selekteer Van Datum</string>
+    <string name="select_to_date">Selekteer Na Datum</string>
+    <string name="error_from_date_before_to">Van datum moet voor na datum wees</string>
+    
+    <!-- Settings Screen -->
+    <string name="settings">Instellings</string>
+    <string name="user">Gebruiker</string>
+    <string name="date_created">Datum aangemaak</string>
+    <string name="current_password">Huidige Wagwoord</string>
+    <string name="new_password">Nuwe Wagwoord</string>
+    <string name="language">Taal</string>
+    <string name="language_options">Taal Opsies</string>
+    <string name="biometric_authentication">Biometrie Verifikasie</string>
+    <string name="enabled">Gek</string>
+    <string name="disabled">Gedeaktiveer</string>
+    <string name="sign_out">Teken uit</string>
+    <string name="save">Stoor</string>
+    <string name="guest_mode">Gast Modus</string>
+    <string name="guest_mode_description_full">Jy verken as \'n gast. Sommige kenmerke is beperk.</string>
+    <string name="login_button">Teken in</string>
+    <string name="register_button">Registreer</string>
+    <string name="online_unlock">Aanlyn nou – ontgrendel synkronisering &amp; prestasies!</string>
+    <string name="offline_prompt">Aflyn – prompt sal wanneer aanlyn gebruik word.</string>
+    <string name="create_account_description">Skep \'n rekening om voortgang te stoor, herstel op enige apparaat, en ontvang lokaasie-aanwysings.</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="loading_user_data">Laai gebruikersdata…</string>
+    <string name="please_log_in">Teken in om toegang tot instellings te kry</string>
+    <string name="signed_out_successfully">Teken uit suksesvol</string>
+    <string name="profile_updated_successfully">Profiel suksesvol bygewerk</string>
+    <string name="biometric_enabled">Biometrie verifikasie gek</string>
+    <string name="biometric_disabled">Biometrie verifikasie gedeaktiveer</string>
+    <string name="error_current_password_required">Huidige wagwoord is vereis om veranderinge te stoor</string>
+    <string name="error_password_min_length">Nuwe wagwoord moet ten minste 6 karakters wees</string>
+    <string name="error_no_changes">Geen veranderinge was gemaak</string>
+    
+    <!-- Notification Screen -->
+    <string name="notifications_title">Kennisgewings</string>
+    <string name="mark_all_read">Merk alles as gelees</string>
+    <string name="clear_all">Maak leeg</string>
+    <string name="no_notifications">Geen kennisgewings</string>
+    <string name="no_notifications_description">Jy het geen kennisgewings nog nie.</string>
+    
+    <!-- Validation Errors -->
+    <string name="error_enter_email">Voer u e-pos adres in</string>
+    <string name="error_enter_password">Voer u wagwoord in</string>
+    <string name="error_valid_email">Voer \'n geldige e-pos adres in</string>
+    <string name="error_enter_full_name">Voer u volle naam in</string>
+    <string name="error_enter_username">Voer \'n gebruikersnaam in</string>
+    <string name="error_password_length">Wagwoord moet ten minste 6 karakters wees</string>
+    <string name="error_passwords_match">Wagwoorde pas nie ooreen nie</string>
+</resources>
+

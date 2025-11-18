@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.AppRegistration
@@ -45,7 +45,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.prog7314.geoquest.R
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,8 @@ import androidx.navigation.NavController
 import com.prog7314.geoquest.components.overlays.CenteredLoadingIndicator
 import com.prog7314.geoquest.components.textfields.StyledTextField
 import com.prog7314.geoquest.data.model.UserViewModel
+import com.prog7314.geoquest.data.preferences.LanguagePreferences
+import com.prog7314.geoquest.utils.LocaleHelper
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.filled.Fingerprint
@@ -82,9 +86,9 @@ fun SettingsScreen(navController: NavController, userViewModel: UserViewModel) {
     LaunchedEffect(currentUser, isSigningOut, isGuestMode) {
         if (currentUser == null && !isGuestMode) {
             val message = if (isSigningOut) {
-                "Signed out successfully"
+                context.getString(R.string.signed_out_successfully)
             } else {
-                "Please log in to access settings"
+                context.getString(R.string.please_log_in)
             }
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             navController.navigate("login") {
@@ -95,7 +99,7 @@ fun SettingsScreen(navController: NavController, userViewModel: UserViewModel) {
 
     LaunchedEffect(errorMessage) {
         errorMessage?.let { message ->
-            if (message == "Profile updated successfully") {
+            if (message == context.getString(R.string.profile_updated_successfully)) {
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
@@ -116,7 +120,7 @@ fun SettingsScreen(navController: NavController, userViewModel: UserViewModel) {
         )
         return
     } else if (user == null) {
-        CenteredLoadingIndicator(message = "Loading user data...")
+        CenteredLoadingIndicator(message = stringResource(R.string.loading_user_data))
         return
     }
 
@@ -161,7 +165,7 @@ private fun UpgradePromptCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = if (isConnected) "Online now – unlock syncing & achievements!" else "Offline – prompt will enable when online.",
+                    text = if (isConnected) stringResource(R.string.online_unlock) else stringResource(R.string.offline_prompt),
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF7A5C15),
                     fontSize = 14.sp,
@@ -169,7 +173,7 @@ private fun UpgradePromptCard(
                 )
                 Icon(
                     Icons.Default.Close,
-                    contentDescription = "Dismiss",
+                    contentDescription = stringResource(R.string.dismiss),
                     modifier = Modifier
                         .size(24.dp)
                         .clickable { onDismiss() },
@@ -178,7 +182,7 @@ private fun UpgradePromptCard(
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "Create an account to save progress, restore on any device, and receive location alerts.",
+                text = stringResource(R.string.create_account_description),
                 color = Color(0xFF8B6F1C),
                 fontSize = 12.sp,
                 lineHeight = 16.sp
@@ -191,9 +195,9 @@ private fun UpgradePromptCard(
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEE9B00))
                 ) {
-                    Icon(Icons.Default.Login, contentDescription = null, tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(6.dp))
-                    Text("Login", color = Color.White, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.login_button), color = Color.White, fontWeight = FontWeight.Medium)
                 }
                 Button(
                     onClick = onRegister,
@@ -203,7 +207,7 @@ private fun UpgradePromptCard(
                 ) {
                     Icon(Icons.Default.AppRegistration, contentDescription = null, tint = Color.White)
                     Spacer(Modifier.width(6.dp))
-                    Text("Register", color = Color.White, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.register_button), color = Color.White, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -244,13 +248,13 @@ fun SettingsGuestContent(
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Guest Mode", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF2C3E50))
+                    Text(stringResource(R.string.guest_mode), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF2C3E50))
                     Spacer(Modifier.height(8.dp))
-                    Text("You're exploring as a guest. Some features are limited.", color = Color.Gray, fontSize = 14.sp)
+                    Text(stringResource(R.string.guest_mode_description_full), color = Color.Gray, fontSize = 14.sp)
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = onLogin, enabled = isConnected) { Text("Login") }
+                    Button(onClick = onLogin, enabled = isConnected) { Text(stringResource(R.string.login_button)) }
                     Spacer(Modifier.height(8.dp))
-                    Button(onClick = onRegister, enabled = isConnected) { Text("Register") }
+                    Button(onClick = onRegister, enabled = isConnected) { Text(stringResource(R.string.register_button)) }
                 }
             }
         }
@@ -272,15 +276,23 @@ fun SettingsContent(
     var username by remember { mutableStateOf(user.username) }
     var newPassword by remember { mutableStateOf("") }
     var currentPassword by remember { mutableStateOf("") }
-    var selectedLanguage by remember { mutableStateOf("English") }
+    val context = LocalContext.current
+    
+    // Language selection - sync with saved preference
+    var selectedLanguage by remember { mutableStateOf(LanguagePreferences.getCurrentLanguageName(context)) }
     var isLanguageDropdownExpanded by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf("") }
+    
+    // Update language display when screen is displayed
+    LaunchedEffect(Unit) {
+        selectedLanguage = LanguagePreferences.getCurrentLanguageName(context)
+    }
 
-    val context = LocalContext.current
     val isBiometricAvailable = remember { BiometricAuthHelper.isBiometricAvailable(context) }
     var isBiometricEnabled by remember { mutableStateOf(BiometricPreferences.isBiometricEnabled(context)) }
 
-    val languages = listOf("English", "Spanish", "French", "German", "Portuguese")
+    val languages = LocaleHelper.getSupportedLanguageNames()
+    val languageCodes = LocaleHelper.getSupportedLanguages()
 
     // Format date for display
     val formattedDate = user.dateJoined.let { timestamp ->
@@ -359,13 +371,13 @@ fun SettingsContent(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "User",
+                                    text = stringResource(R.string.user),
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF2C3E50),
                                     fontSize = 12.sp
                                 )
                                 Text(
-                                    text = "Date Created",
+                                    text = stringResource(R.string.date_created),
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF2C3E50),
                                     fontSize = 12.sp
@@ -405,9 +417,6 @@ fun SettingsContent(
                     )
                 }
 
-
-
-
                 // Non-editable Email Display
                 Card(
                     modifier = Modifier
@@ -420,7 +429,7 @@ fun SettingsContent(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "Email",
+                            text = stringResource(R.string.email),
                             fontSize = 12.sp,
                             color = Color.Gray,
                             fontWeight = FontWeight.Medium
@@ -441,7 +450,7 @@ fun SettingsContent(
                         username = it
                         validationError = ""
                     },
-                    label = "Username",
+                    label = stringResource(R.string.username),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp)
@@ -454,7 +463,7 @@ fun SettingsContent(
                         currentPassword = it
                         validationError = ""
                     },
-                    label = "Current Password",
+                    label = stringResource(R.string.current_password),
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -468,7 +477,7 @@ fun SettingsContent(
                         newPassword = it
                         validationError = ""
                     },
-                    label = "New Password",
+                    label = stringResource(R.string.new_password),
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -485,7 +494,7 @@ fun SettingsContent(
                         value = selectedLanguage,
                         onValueChange = { },
                         readOnly = true,
-                        label = { Text("Language", color = Color.Gray) },
+                        label = { Text(stringResource(R.string.language), color = Color.Gray) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { isLanguageDropdownExpanded = true },
@@ -494,7 +503,7 @@ fun SettingsContent(
                             IconButton(onClick = { isLanguageDropdownExpanded = true }) {
                                 Icon(
                                     Icons.Default.MoreHoriz,
-                                    contentDescription = "Language Options",
+                                    contentDescription = stringResource(R.string.language_options),
                                     tint = Color.Gray
                                 )
                             }
@@ -506,10 +515,22 @@ fun SettingsContent(
                         onDismissRequest = { isLanguageDropdownExpanded = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        languages.forEach { language ->
+                        languages.forEachIndexed { index, language ->
                             DropdownMenuItem(
                                 text = { Text(language) },
                                 onClick = {
+                                    val languageCode = languageCodes[index]
+                                    if (LanguagePreferences.getLanguage(context) != languageCode) {
+                                        // Save language preference synchronously before recreating
+                                        context.getSharedPreferences("language_prefs", android.content.Context.MODE_PRIVATE)
+                                            .edit()
+                                            .putString("language_code", languageCode)
+                                            .commit()
+                                        
+                                        // Restart activity to apply language change
+                                        val activity = context as? android.app.Activity
+                                        activity?.recreate()
+                                    }
                                     selectedLanguage = language
                                     isLanguageDropdownExpanded = false
                                 }
@@ -547,13 +568,13 @@ fun SettingsContent(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = "Biometric Authentication",
+                                        text = stringResource(R.string.biometric_authentication),
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFF2C3E50)
                                     )
                                     Text(
-                                        text = if (isBiometricEnabled) "Enabled" else "Disabled",
+                                        text = if (isBiometricEnabled) stringResource(R.string.enabled) else stringResource(R.string.disabled),
                                         fontSize = 12.sp,
                                         color = Color(0xFF757575)
                                     )
@@ -572,7 +593,7 @@ fun SettingsContent(
                                                     isBiometricEnabled = true
                                                     Toast.makeText(
                                                         context,
-                                                        "Biometric authentication enabled",
+                                                        context.getString(R.string.biometric_enabled),
                                                         Toast.LENGTH_SHORT
                                                     ).show()
                                                 },
@@ -586,7 +607,7 @@ fun SettingsContent(
                                         isBiometricEnabled = false
                                         Toast.makeText(
                                             context,
-                                            "Biometric authentication disabled",
+                                            context.getString(R.string.biometric_disabled),
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
@@ -627,7 +648,7 @@ fun SettingsContent(
                         enabled = !isLoading
                     ) {
                         Text(
-                            text = "Sign Out",
+                            text = stringResource(R.string.sign_out),
                             color = Color(0xFFE53935),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold
@@ -639,16 +660,16 @@ fun SettingsContent(
                         onClick = {
                             when {
                                 currentPassword.isBlank() -> {
-                                    validationError = "Current password is required to save changes"
+                                    validationError = context.getString(R.string.error_current_password_required)
                                 }
 
                                 newPassword.isNotBlank() && newPassword.length < 6 -> {
-                                    validationError = "New password must be at least 6 characters"
+                                    validationError = context.getString(R.string.error_password_min_length)
                                 }
 
                                 else -> {
                                     if (newPassword.isBlank() && username == user.username) {
-                                        validationError = "No changes were made"
+                                        validationError = context.getString(R.string.error_no_changes)
                                     } else {
                                         onUpdateUser(
                                             user.copy(username = username),
@@ -680,7 +701,7 @@ fun SettingsContent(
                             )
                         } else {
                             Text(
-                                text = "Save",
+                                text = stringResource(R.string.save),
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold

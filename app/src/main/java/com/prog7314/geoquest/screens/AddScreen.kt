@@ -17,8 +17,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.ImageBitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.ui.res.stringResource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.text.font.FontWeight
+import com.prog7314.geoquest.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -47,10 +58,10 @@ fun AddScreenPreview() {
 @SuppressLint("MissingPermission")
 @Composable
 fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
-    val contexts = LocalContext.current
+    val context = LocalContext.current
     val locationViewModel: LocationViewModel = viewModel(
         factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
-            contexts.applicationContext as android.app.Application
+            context.applicationContext as android.app.Application
         )
     )
     val currentUser by userViewModel.currentUser.collectAsState()
@@ -59,8 +70,6 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
     var description by remember { mutableStateOf("") }
     var isPublic by remember { mutableStateOf(true) }
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
-
-    val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     val currentDeviceLocation = remember { mutableStateOf<LatLng?>(null) }
     val isLoading by userViewModel.isLoading.collectAsState()
@@ -122,18 +131,18 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
-            .padding(20.dp),
+            .background(Color(0xFFE8F4F8))
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Main content card
         Card(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 20.dp),
-            shape = RoundedCornerShape(20.dp),
+                .padding(vertical = 8.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -165,7 +174,7 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it },
-                            placeholder = { Text("Name") },
+                            placeholder = { Text(stringResource(R.string.name)) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -180,7 +189,7 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                         OutlinedTextField(
                             value = description,
                             onValueChange = { description = it },
-                            placeholder = { Text("Description") },
+                            placeholder = { Text(stringResource(R.string.description)) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp),
@@ -206,17 +215,18 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
 
                 // Location Preview Label
                 Text(
-                    text = "Location Preview",
-                    fontSize = 16.sp,
+                    text = stringResource(R.string.location_preview),
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF2C3E50),
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
 
                 // Google Maps Preview with clickable save action
                 GoogleMapsPreview(
                     currentLocation = currentDeviceLocation.value,
-                    locationName = name.ifBlank { "New Location" },
+                    locationName = name.ifBlank { stringResource(R.string.new_location) },
                     onSaveClick = {
                         val userId = currentUser?.id
                         val lat = currentDeviceLocation.value?.latitude
@@ -225,7 +235,7 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                         if (userId.isNullOrBlank()) {
                             Toast.makeText(
                                 context,
-                                "Error: User not logged in.",
+                                context.getString(R.string.error_user_not_logged_in),
                                 Toast.LENGTH_SHORT
                             ).show()
                             return@GoogleMapsPreview
@@ -234,7 +244,7 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                         if (lat == null || long == null) {
                             Toast.makeText(
                                 context,
-                                "Error: Could not get current location.",
+                                context.getString(R.string.error_could_not_get_location),
                                 Toast.LENGTH_SHORT
                             ).show()
                             return@GoogleMapsPreview
@@ -243,7 +253,7 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                         if (name.isBlank()) {
                             Toast.makeText(
                                 context,
-                                "Please enter a location name",
+                                context.getString(R.string.error_enter_location_name),
                                 Toast.LENGTH_SHORT
                             ).show()
                             return@GoogleMapsPreview
@@ -252,7 +262,7 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                         if (description.isBlank()) {
                             Toast.makeText(
                                 context,
-                                "Please enter a description",
+                                context.getString(R.string.error_enter_description),
                                 Toast.LENGTH_SHORT
                             ).show()
                             return@GoogleMapsPreview
@@ -261,7 +271,7 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
                         if (selectedImageUri == null) {
                             Toast.makeText(
                                 context,
-                                "Please select an image",
+                                context.getString(R.string.error_select_image),
                                 Toast.LENGTH_SHORT
                             ).show()
                             return@GoogleMapsPreview
@@ -281,9 +291,7 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
 
                         // Navigate back or show success message
                         navController.popBackStack()
-                        Toast
-                            .makeText(context, "Location saved successfully!", Toast.LENGTH_SHORT)
-                            .show()
+                        Toast.makeText(context, context.getString(R.string.location_saved), Toast.LENGTH_SHORT).show()
                     }
                 )
 
@@ -301,34 +309,65 @@ fun AddScreen(navController: NavController, userViewModel: UserViewModel) {
         }
     }
 }
-
-
 @Composable
 fun ImageUploadSection(
     selectedImageUri: String?,
     onImageClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    
+    // Load image bitmap when URI changes
+    LaunchedEffect(selectedImageUri) {
+        imageBitmap = if (selectedImageUri != null) {
+            try {
+                val uri = Uri.parse(selectedImageUri)
+                // Load bitmap on IO dispatcher to avoid blocking UI thread
+                val bitmap = withContext(Dispatchers.IO) {
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    val decodedBitmap = BitmapFactory.decodeStream(inputStream)
+                    inputStream?.close()
+                    decodedBitmap
+                }
+                bitmap?.asImageBitmap()
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+    
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(200.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFFC0C0C0))
-            .clickable { onImageClick() },
+            .background(if (imageBitmap != null) Color.Transparent else Color(0xFFC0C0C0))
+            .clickable { onImageClick() }
+            .then(
+                if (imageBitmap != null) {
+                    Modifier.border(2.dp, Color(0xFF87CEEB), RoundedCornerShape(20.dp))
+                } else {
+                    Modifier
+                }
+            ),
         contentAlignment = Alignment.Center
     ) {
-        if (selectedImageUri != null) {
-            // Here you would display the selected image
-            // For now, showing placeholder text
-            Text(
-                text = "Image Selected",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.Black
+        if (imageBitmap != null) {
+            // Display the selected image
+            Image(
+                bitmap = imageBitmap!!,
+                contentDescription = stringResource(R.string.image_selected),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(20.dp)),
+                contentScale = ContentScale.Crop
             )
         } else {
+            // Show placeholder text
             Text(
-                text = "Tap To Add Image",
+                text = stringResource(R.string.tap_to_add_image),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
@@ -360,7 +399,7 @@ fun VisibilityToggle(
             border = if (!isPublic) BorderStroke(1.dp, Color.Gray) else null
         ) {
             Text(
-                text = "Public",
+                text = stringResource(R.string.public_visibility),
                 color = if (isPublic) Color.White else Color.Black,
                 fontWeight = FontWeight.Medium
             )
@@ -379,7 +418,7 @@ fun VisibilityToggle(
             border = if (isPublic) BorderStroke(1.dp, Color.Gray) else null
         ) {
             Text(
-                text = "Private",
+                text = stringResource(R.string.private_visibility),
                 color = if (!isPublic) Color.White else Color.Black,
                 fontWeight = FontWeight.Medium
             )
@@ -390,7 +429,7 @@ fun VisibilityToggle(
 @Composable
 fun GoogleMapsPreview(
     currentLocation: LatLng? = null,
-    locationName: String = "New Location",
+    locationName: String,
     onSaveClick: () -> Unit = {}
 ) {
     Card(
@@ -449,7 +488,7 @@ fun GoogleMapsPreview(
                             color = Color.White
                         )
                         Text(
-                            text = "Tap to save",
+                            text = stringResource(R.string.tap_to_save),
                             fontSize = 11.sp,
                             color = Color.White.copy(alpha = 0.9f),
                             fontWeight = FontWeight.Medium
@@ -471,7 +510,7 @@ fun GoogleMapsPreview(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Getting your location...",
+                        text = stringResource(R.string.getting_location),
                         fontSize = 14.sp,
                         color = Color(0xFF757575),
                         fontWeight = FontWeight.Medium

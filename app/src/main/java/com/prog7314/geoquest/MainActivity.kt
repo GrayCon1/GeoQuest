@@ -1,5 +1,6 @@
 package com.prog7314.geoquest
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -8,9 +9,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +23,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.prog7314.geoquest.ui.theme.BackgroundLight
+import com.prog7314.geoquest.ui.theme.PrimaryBlue
+import com.prog7314.geoquest.ui.theme.TextSecondary
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -36,17 +44,25 @@ import com.prog7314.geoquest.screens.LoginScreen
 import com.prog7314.geoquest.screens.RegisterScreen
 import com.prog7314.geoquest.screens.Screen
 import com.prog7314.geoquest.screens.SettingsScreen
+import com.prog7314.geoquest.data.preferences.LanguagePreferences
 import com.prog7314.geoquest.ui.theme.PROG7314Theme
+import com.prog7314.geoquest.utils.LocaleHelper
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context?) {
+        val base = newBase ?: return super.attachBaseContext(null)
+        val languageCode = LanguagePreferences.getLanguage(base)
+        val updatedContext = LocaleHelper.setLocale(base, languageCode)
+        super.attachBaseContext(updatedContext)
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
         enableEdgeToEdge()
         setContent {
-            FirebaseApp.initializeApp(this)
-            
             PROG7314Theme {
                 Main()
             }
@@ -59,11 +75,9 @@ fun Main() {
     val navController = rememberNavController()
     val context = LocalContext.current
     val userViewModel: UserViewModel = viewModel(
-        factory = androidx.lifecycle.viewmodel.compose.viewModel<UserViewModel>().let {
-            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
-                context.applicationContext as android.app.Application
-            )
-        }
+        factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
+            context.applicationContext as android.app.Application
+        )
     )
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -77,7 +91,6 @@ fun Main() {
     val routesWithNavBar = listOf(homeRoute, "logbook", "add", "settings")
     val showNavBar = routesWithNavBar.any { currentRoute?.startsWith(it.split('?')[0]) ?: false }
 
-
     Scaffold(
         bottomBar = {
             if (showNavBar) {
@@ -88,7 +101,7 @@ fun Main() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFE8F4F8))
+                .background(BackgroundLight)
                 .padding(innerPadding)
         ) {
             NavHost(
@@ -147,7 +160,10 @@ fun BottomNavigationBar(navController: NavController, currentRoute: String?) {
         Screen.Settings
     )
 
-    NavigationBar {
+    NavigationBar(
+        containerColor = Color.White,
+        tonalElevation = 8.dp
+    ) {
         navigationItems.forEachIndexed { index, item ->
             val isMiddleItem = index == 1
             val route = if (item.route.contains("?")) {
@@ -166,10 +182,16 @@ fun BottomNavigationBar(navController: NavController, currentRoute: String?) {
                 icon = {
                     Icon(
                         item.icon,
-                        contentDescription = item.label
+                        contentDescription = item.label,
+                        modifier = Modifier.size(24.dp)
                     )
                 },
-                label = { Text(item.label) },
+                label = { 
+                    Text(
+                        text = item.label,
+                        style = MaterialTheme.typography.labelMedium
+                    ) 
+                },
                 selected = isSelected,
                 onClick = {
                     // Determine the target route
@@ -184,23 +206,39 @@ fun BottomNavigationBar(navController: NavController, currentRoute: String?) {
                     // Get current base route (without parameters)
                     val currentBaseRoute = currentRoute?.substringBefore('?') ?: ""
 
-                    // Navigate if clicking a different screen
-                    if (currentBaseRoute != targetRoute) {
-                        navController.navigate(targetRoute) {
-                            // Pop up to login to maintain clean back stack
-                            popUpTo("login") {
-                                saveState = true
+                    // Navigate if clicking a different screen OR if clicking home to clear parameters
+                    if (currentBaseRoute != targetRoute || (targetRoute == "home" && currentRoute != "home")) {
+                        // For home route, always navigate without parameters to clear any previous location
+                        val finalRoute = if (targetRoute == "home") "home" else targetRoute
+                        navController.navigate(finalRoute) {
+                            // When navigating to logbook, pop any home routes with parameters first
+                            if (targetRoute == "logbook" && currentBaseRoute == "home") {
+                                popUpTo("home") {
+                                    inclusive = false
+                                    saveState = false
+                                }
+                            } else {
+                                // Pop up to login to maintain clean back stack
+                                popUpTo("login") {
+                                    saveState = true
+                                }
                             }
                             // Avoid multiple copies of same destination
                             launchSingleTop = true
                             // Don't restore state for Home to ensure fresh map without old pins
-                            restoreState = targetRoute != "home"
+                            // Also don't restore state when navigating to logbook to prevent restoring home with params
+                            restoreState = targetRoute != "home" && targetRoute != "logbook"
                         }
                     }
-                }
+                },
+                colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                    selectedIconColor = PrimaryBlue,
+                    selectedTextColor = PrimaryBlue,
+                    indicatorColor = PrimaryBlue.copy(alpha = 0.1f),
+                    unselectedIconColor = TextSecondary,
+                    unselectedTextColor = TextSecondary
+                )
             )
         }
     }
 }
-
-

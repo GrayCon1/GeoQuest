@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocationOn
@@ -25,18 +26,25 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.*
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.prog7314.geoquest.data.repo.UserRepo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
@@ -46,9 +54,11 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.rememberMarkerState
 import com.prog7314.geoquest.data.model.LocationViewModel
 import com.prog7314.geoquest.data.model.UserViewModel
 
@@ -87,12 +97,41 @@ fun MapScreen(
     val isOnline by locationViewModel.isOnline.collectAsState()
     val unsyncedCount by locationViewModel.unsyncedCount.collectAsState()
     val syncStatus by locationViewModel.syncStatus.collectAsState()
+    val currentUser by userViewModel.currentUser.collectAsState()
+
+    // Cache for user information (userId -> username)
+    val userInfoCache = remember { mutableStateMapOf<String, String>() }
+    val userRepo = remember { UserRepo(context) }
 
     var hasLocationPermission by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }
     var showFilter by remember { mutableStateOf(false) }
 
     val isFromLogbook = initialLat != null && initialLng != null
+
+    // Fetch user information for locations from other users
+    LaunchedEffect(locations, currentUser?.id) {
+        val userIdsToFetch = locations
+            .map { it.userId }
+            .distinct()
+            .filter { it != currentUser?.id && it.isNotEmpty() && !userInfoCache.containsKey(it) }
+        
+        userIdsToFetch.forEach { userId ->
+            launch(Dispatchers.IO) {
+                try {
+                    val result = userRepo.getUserProfile(userId)
+                    result.onSuccess { userData ->
+                        userInfoCache[userId] = userData.username.ifEmpty { userData.name.ifEmpty { userId } }
+                    }.onFailure {
+                        // If fetch fails, use userId as fallback
+                        userInfoCache[userId] = userId
+                    }
+                } catch (e: Exception) {
+                    userInfoCache[userId] = userId
+                }
+            }
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -114,10 +153,23 @@ fun MapScreen(
         }
     }
 
+    // Reset when parameters change - if no parameters, load all locations
     LaunchedEffect(initialLat, initialLng, initialName, initialDesc) {
         if (isFromLogbook) {
+            // Show single location from logbook
             locationViewModel.clearLocations()
         } else {
+            // No parameters - show all locations
+            locationViewModel.loadAllLocations()
+        }
+    }
+    
+    // Track route changes to reset when navigating back to home without parameters
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    
+    LaunchedEffect(currentRoute, initialLat, initialLng) {
+        // If we're on home route without parameters, ensure we're showing all locations
+        if (currentRoute == "home" && !isFromLogbook) {
             locationViewModel.loadAllLocations()
         }
     }
@@ -137,8 +189,8 @@ fun MapScreen(
         }
     }
 
-    val initialCameraPos = if (isFromLogbook && initialLat != null && initialLng != null) {
-        LatLng(initialLat, initialLng)
+    val initialCameraPos = if (isFromLogbook) {
+        LatLng(initialLat!!, initialLng!!)
     } else {
         currentDeviceLocation.value ?: LatLng(-33.974273681640625, 18.46971893310547)
     }
@@ -158,44 +210,104 @@ fun MapScreen(
                 }
             }
         } else {
-            @Suppress("SENSELESS_COMPARISON")
-            if (initialLat != null && initialLng != null) {
-                cameraPositionState.animate(
-                    CameraUpdateFactory.newLatLngZoom(LatLng(initialLat, initialLng), 15f)
-                )
-            }
+            // isFromLogbook is true, so initialLat and initialLng are guaranteed to be non-null
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(LatLng(initialLat!!, initialLng!!), 15f)
+            )
         }
     }
+
+    // Map UI Settings - disable zoom controls, enable gestures
+    val uiSettings = remember {
+        MapUiSettings(
+            zoomControlsEnabled = false, // Remove +/- zoom buttons
+            zoomGesturesEnabled = true, // Enable pinch-to-zoom on mobile
+            scrollGesturesEnabled = true, // Enable scroll/pan gestures
+            rotationGesturesEnabled = true, // Enable rotation gestures
+            tiltGesturesEnabled = true, // Enable tilt gestures
+            myLocationButtonEnabled = false // We'll use custom location button if needed
+        )
+    }
+
+    // Animation for pulsing circle effect
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val circleScale by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "circleScale"
+    )
+    val circleAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "circleAlpha"
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState
+            cameraPositionState = cameraPositionState,
+            uiSettings = uiSettings,
+            properties = MapProperties(
+                isMyLocationEnabled = hasLocationPermission
+            )
         ) {
             currentDeviceLocation.value?.let { location ->
+                // Outer pulsing circle
                 Circle(
                     center = location,
-                    radius = 50.0,
-                    fillColor = Color.Blue.copy(alpha = 0.3f),
-                    strokeColor = Color.Blue,
-                    strokeWidth = 2f
+                    radius = 80.0 * circleScale,
+                    fillColor = Color(0xFF2196F3).copy(alpha = circleAlpha),
+                    strokeColor = Color.Transparent,
+                    strokeWidth = 0f
+                )
+                // Middle circle
+                Circle(
+                    center = location,
+                    radius = 60.0,
+                    fillColor = Color(0xFF2196F3).copy(alpha = 0.2f),
+                    strokeColor = Color.Transparent,
+                    strokeWidth = 0f
+                )
+                // Inner solid circle (current location indicator)
+                Circle(
+                    center = location,
+                    radius = 12.0,
+                    fillColor = Color(0xFF2196F3),
+                    strokeColor = Color.White,
+                    strokeWidth = 3f
                 )
             }
-            @Suppress("SENSELESS_COMPARISON")
-            if (isFromLogbook && initialLat != null && initialLng != null) {
-                @Suppress("DEPRECATION")
+            if (isFromLogbook) {
                 Marker(
-                    state = rememberMarkerState(position = LatLng(initialLat, initialLng)),
+                    state = MarkerState(position = LatLng(initialLat!!, initialLng!!)),
                     title = initialName,
                     snippet = initialDesc
                 )
             } else {
                 locations.forEach { locationData ->
-                    @Suppress("DEPRECATION")
+                    // Check if location is from a different user
+                    val isFromOtherUser = currentUser?.id != null && locationData.userId != currentUser?.id
+                    val snippet = if (isFromOtherUser) {
+                        // Show author username (or userId if not yet fetched)
+                        val authorName = userInfoCache[locationData.userId] ?: locationData.userId
+                        "Author: $authorName"
+                    } else {
+                        // Show description for own locations
+                        locationData.description
+                    }
+                    
                     Marker(
-                        state = rememberMarkerState(position = LatLng(locationData.latitude, locationData.longitude)),
+                        state = MarkerState(position = LatLng(locationData.latitude, locationData.longitude)),
                         title = locationData.name,
-                        snippet = locationData.description
+                        snippet = snippet
                     )
                 }
             }
@@ -212,15 +324,19 @@ fun MapScreen(
                 onClick = { showFilter = true },
                 modifier = Modifier
                     .background(
-                        Color.White.copy(alpha = 0.9f),
+                        Color.White,
                         CircleShape
                     )
-                    .size(48.dp)
+                    .size(52.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = Color(0xFF2C3E50)
+                )
             ) {
                 Icon(
                     Icons.Default.FilterList,
                     contentDescription = "Filter",
-                    tint = Color.Black
+                    tint = Color(0xFF2C3E50),
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -228,15 +344,19 @@ fun MapScreen(
                 onClick = { showNotifications = true },
                 modifier = Modifier
                     .background(
-                        Color.White.copy(alpha = 0.9f),
+                        Color.White,
                         CircleShape
                     )
-                    .size(48.dp)
+                    .size(52.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = Color(0xFF2C3E50)
+                )
             ) {
                 Icon(
                     Icons.Default.Notifications,
                     contentDescription = "Notifications",
-                    tint = Color.Black
+                    tint = Color(0xFF2C3E50),
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -245,22 +365,24 @@ fun MapScreen(
         Card(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 72.dp)
+                .padding(top = 76.dp)
                 .clickable { if (unsyncedCount > 0) locationViewModel.syncNow() },
             colors = CardDefaults.cardColors(
-                containerColor = if (isOnline) Color(0xFF4CAF50).copy(alpha = 0.9f) else Color(0xFFFF9800).copy(alpha = 0.9f)
-            )
+                containerColor = if (isOnline) Color(0xFF4CAF50) else Color(0xFFFF9800)
+            ),
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = if (isOnline) Icons.Default.Star else Icons.Default.LocationOn,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = if (isOnline) {
@@ -269,7 +391,8 @@ fun MapScreen(
                         "Offline mode"
                     },
                     color = Color.White,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -282,14 +405,17 @@ fun MapScreen(
                     .padding(16.dp)
                     .clickable { locationViewModel.clearSyncStatus() },
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.White.copy(alpha = 0.95f)
-                )
+                    containerColor = Color.White
+                ),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
             ) {
                 Text(
                     text = status,
                     modifier = Modifier.padding(16.dp),
-                    color = Color.Black,
-                    fontSize = 14.sp
+                    color = Color(0xFF2C3E50),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -336,7 +462,6 @@ fun MapScreen(
     }
 }
 
-
 @SuppressLint("MissingPermission")
 private fun startLocationUpdates(
     context: Context,
@@ -361,5 +486,3 @@ private fun startLocationUpdates(
     fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
     return locationCallback
 }
-
-

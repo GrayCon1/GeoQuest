@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.FlowPreview
 
+@OptIn(FlowPreview::class)
 class UserViewModel(application: Application) : AndroidViewModel(application) {
 
     private val userRepo = UserRepo(application.applicationContext)

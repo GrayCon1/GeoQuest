@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,7 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.prog7314.geoquest.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,7 +36,6 @@ import com.prog7314.geoquest.data.model.UserViewModel
 import com.prog7314.geoquest.ui.theme.PROG7314Theme
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import java.util.*
 import com.prog7314.geoquest.components.common.StyledFilterChip
 
 enum class VisibilityFilter {
@@ -119,12 +121,12 @@ fun LogbookContent(
                     )
                     showDatePicker = false
                 }) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         ) {
@@ -142,7 +144,7 @@ fun LogbookContent(
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Add Location"
+                    contentDescription = stringResource(R.string.add_location)
                 )
             }
         }
@@ -154,10 +156,12 @@ fun LogbookContent(
                 .padding(paddingValues)
         ) {
             Text(
-                text = "My Logbook",
+                text = stringResource(R.string.my_logbook),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
+                color = Color(0xFF2C3E50),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 8.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -165,12 +169,17 @@ fun LogbookContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 VisibilityFilter.entries.forEach { filter ->
+                    val label = when (filter) {
+                        VisibilityFilter.ALL -> stringResource(R.string.all)
+                        VisibilityFilter.PUBLIC -> stringResource(R.string.public_visibility)
+                        VisibilityFilter.PRIVATE -> stringResource(R.string.private_visibility)
+                    }
                     StyledFilterChip(
-                        label = filter.name.lowercase().replaceFirstChar { it.uppercase() },
+                        label = label,
                         selected = selectedVisibilityFilter == filter,
                         onClick = { onVisibilityFilterSelected(filter) }
                     )
@@ -183,16 +192,16 @@ fun LogbookContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 StyledFilterChip(
-                    label = "Custom Date",
+                    label = stringResource(R.string.custom_date),
                     selected = fromDate != null || toDate != null,
                     onClick = { showDatePicker = true }
                 )
                 StyledFilterChip(
-                    label = "Clear Dates",
+                    label = stringResource(R.string.clear_dates),
                     selected = false,
                     onClick = { onDateRangeSelected(null, null) }
                 )
@@ -201,11 +210,11 @@ fun LogbookContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (isLoading) {
-                CenteredLoadingIndicator(message = "Loading locations...")
+                CenteredLoadingIndicator(message = stringResource(R.string.loading_locations))
             } else if (locations.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "No locations found for this filter.\nTap the '+' button to add one!",
+                        text = stringResource(R.string.no_locations_found),
                         textAlign = TextAlign.Center,
                         fontSize = 18.sp,
                         color = Color.Gray,
@@ -216,8 +225,9 @@ fun LogbookContent(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(
                         items = locations.filter { it.id !in deletedLocationIds },
@@ -234,7 +244,15 @@ fun LogbookContent(
                                 onClick = {
                                     val encodedName = URLEncoder.encode(location.name, StandardCharsets.UTF_8.toString())
                                     val encodedDesc = URLEncoder.encode(location.description, StandardCharsets.UTF_8.toString())
-                                    navController.navigate("home?lat=${location.latitude}&lng=${location.longitude}&name=$encodedName&desc=$encodedDesc")
+                                    navController.navigate("home?lat=${location.latitude}&lng=${location.longitude}&name=$encodedName&desc=$encodedDesc") {
+                                        // Pop back to home (without parameters) if it exists, then navigate with parameters
+                                        popUpTo("home") {
+                                            inclusive = false
+                                            saveState = false
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = false
+                                    }
                                 },
                                 onDelete = {
                                     deletedLocationIds = deletedLocationIds + location.id
@@ -256,16 +274,18 @@ fun SwipeToDeleteLocationItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var isDeleted by remember { mutableStateOf(false) }
     val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { dismissValue ->
-            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        }
+        positionalThreshold = { distance -> distance * 0.5f }
     )
+
+    // Trigger delete when swipe is completed
+    LaunchedEffect(dismissState.currentValue) {
+        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart && !isDeleted) {
+            isDeleted = true
+            onDelete()
+        }
+    }
 
     SwipeToDismissBox(
         state = dismissState,
@@ -300,20 +320,6 @@ fun SwipeToDeleteLocationItem(
         )
     }
 }
-
-
-// Helper function to get the start of the day for a given timestamp
-@Suppress("unused")
-private fun getStartOfDay(timestamp: Long): Long {
-    val calendar = Calendar.getInstance()
-    calendar.timeInMillis = timestamp
-    calendar.set(Calendar.HOUR_OF_DAY, 0)
-    calendar.set(Calendar.MINUTE, 0)
-    calendar.set(Calendar.SECOND, 0)
-    calendar.set(Calendar.MILLISECOND, 0)
-    return calendar.timeInMillis
-}
-
 
 @Preview(showBackground = true)
 @Composable

@@ -23,7 +23,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.prog7314.geoquest.R
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -57,7 +59,6 @@ fun RegisterScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var validationError by remember { mutableStateOf("") }
 
-    // Remove this line: val userViewModel: UserViewModel = viewModel()
     val currentUser by userViewModel.currentUser.collectAsState()
     val isLoading by userViewModel.isLoading.collectAsState()
     val errorMessage by userViewModel.errorMessage.collectAsState()
@@ -67,8 +68,8 @@ fun RegisterScreen(
     // Handle successful registration
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
-            Toast.makeText(context, "Registration successful!", Toast.LENGTH_SHORT).show()
-            navController.navigate("home") { // Navigate to home instead of navigation_screen
+            Toast.makeText(context, context.getString(R.string.registration_successful), Toast.LENGTH_SHORT).show()
+            navController.navigate("home") {
                 popUpTo("register") { inclusive = true }
             }
         }
@@ -85,7 +86,7 @@ fun RegisterScreen(
     AuthCard {
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "Create Account",
+            text = stringResource(R.string.create_account),
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF2C3E50),
@@ -93,13 +94,13 @@ fun RegisterScreen(
             modifier = Modifier.fillMaxWidth()
         )
         Text(
-            text = "Register to get exploring",
-            style = MaterialTheme.typography.bodyLarge,
+            text = stringResource(R.string.register_to_explore),
+            style = MaterialTheme.typography.bodyMedium,
             color = Color(0xFF757575),
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 32.dp)
+                .padding(top = 8.dp, bottom = 24.dp)
         )
 
         ErrorText(message = validationError)
@@ -110,7 +111,7 @@ fun RegisterScreen(
                 fullName = it
                 validationError = ""
             },
-            label = "Name & Surname",
+            label = stringResource(R.string.name_surname),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp)
@@ -122,7 +123,7 @@ fun RegisterScreen(
                 username = it
                 validationError = ""
             },
-            label = "Username",
+            label = stringResource(R.string.username),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp)
@@ -134,7 +135,7 @@ fun RegisterScreen(
                 email = it
                 validationError = ""
             },
-            label = "Email",
+            label = stringResource(R.string.email),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp)
@@ -146,7 +147,7 @@ fun RegisterScreen(
                 password = it
                 validationError = ""
             },
-            label = "Password",
+            label = stringResource(R.string.password),
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier
                 .fillMaxWidth()
@@ -159,7 +160,7 @@ fun RegisterScreen(
                 confirmPassword = it
                 validationError = ""
             },
-            label = "Confirm password",
+            label = stringResource(R.string.confirm_password),
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier
                 .fillMaxWidth()
@@ -167,29 +168,29 @@ fun RegisterScreen(
         )
 
         PrimaryButton(
-            text = "Register",
+            text = stringResource(R.string.register),
             onClick = {
                 when {
                     fullName.isBlank() -> {
-                        validationError = "Please enter your full name"
+                        validationError = context.getString(R.string.error_enter_full_name)
                     }
                     username.isBlank() -> {
-                        validationError = "Please enter a username"
+                        validationError = context.getString(R.string.error_enter_username)
                     }
                     email.isBlank() -> {
-                        validationError = "Please enter your email"
+                        validationError = context.getString(R.string.error_enter_email)
                     }
                     !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
-                        validationError = "Please enter a valid email address"
+                        validationError = context.getString(R.string.error_valid_email)
                     }
                     password.isBlank() -> {
-                        validationError = "Please enter a password"
+                        validationError = context.getString(R.string.error_enter_password)
                     }
                     password.length < 6 -> {
-                        validationError = "Password must be at least 6 characters"
+                        validationError = context.getString(R.string.error_password_length)
                     }
                     password != confirmPassword -> {
-                        validationError = "Passwords do not match"
+                        validationError = context.getString(R.string.error_passwords_match)
                     }
                     else -> {
                         val userData = UserData(
@@ -208,7 +209,7 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        DividerWithText(text = "Or Register with")
+        DividerWithText(text = stringResource(R.string.or_register_with))
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -225,12 +226,12 @@ fun RegisterScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Already have an account? ", color = Color(0xFF212121))
+            Text(stringResource(R.string.already_have_account), color = Color(0xFF212121))
             TextButton(
                 onClick = { navController.navigate("login") },
                 contentPadding = PaddingValues(0.dp)
             ) {
-                Text("Login Now", color = Color(0xFF26C6DA))
+                Text(stringResource(R.string.login_now), color = Color(0xFF26C6DA))
             }
         }
     }

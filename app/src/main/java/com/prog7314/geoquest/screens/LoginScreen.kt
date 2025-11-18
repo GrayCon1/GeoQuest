@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.prog7314.geoquest.R
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -99,7 +102,7 @@ fun LoginScreen(
                         email = savedEmail
                         Toast.makeText(
                             context,
-                            "Biometric authentication successful! Please enter your password.",
+                            context.getString(R.string.biometric_auth_successful),
                             Toast.LENGTH_SHORT
                         ).show()
                     },
@@ -118,7 +121,7 @@ fun LoginScreen(
             if (isBiometricAvailable && email.isNotBlank()) {
                 BiometricPreferences.enableBiometric(context, email.trim().lowercase())
             }
-            Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.login_successful), Toast.LENGTH_SHORT).show()
             navController.navigate("home") {
                 popUpTo("login") { inclusive = true }
                 popUpTo("register") { inclusive = true }
@@ -150,13 +153,13 @@ fun LoginScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.WifiOff,
-                    contentDescription = "Offline",
+                    contentDescription = stringResource(R.string.offline_mode),
                     tint = Color(0xFFE65100),
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
-                    text = "You're offline - Limited features available",
+                    text = stringResource(R.string.offline_message),
                     fontSize = 12.sp,
                     color = Color(0xFFE65100)
                 )
@@ -165,16 +168,18 @@ fun LoginScreen(
         }
 
         Text(
-            text = "Welcome to",
-            fontSize = 28.sp,
+            text = stringResource(R.string.welcome_to),
+            fontSize = 24.sp,
             fontWeight = FontWeight.Normal,
-            color = Color(0xFF757575)
+            color = Color(0xFF757575),
+            style = MaterialTheme.typography.titleLarge
         )
         Text(
             text = "GeoQuest",
-            fontSize = 40.sp,
+            fontSize = 36.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF2C3E50)
+            color = Color(0xFF2C3E50),
+            style = MaterialTheme.typography.headlineLarge
         )
         Spacer(modifier = Modifier.height(40.dp))
 
@@ -186,7 +191,7 @@ fun LoginScreen(
                 email = it
                 validationError = ""
             },
-            label = "Enter your email",
+            label = stringResource(R.string.enter_email),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp)
@@ -200,14 +205,14 @@ fun LoginScreen(
                 password = it
                 validationError = ""
             },
-            label = "Enter your password",
+            label = stringResource(R.string.enter_password),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(Icons.Default.Visibility, contentDescription = "Toggle password")
+                    Icon(Icons.Default.Visibility, contentDescription = stringResource(R.string.password))
                 }
             }
         )
@@ -217,23 +222,23 @@ fun LoginScreen(
                 horizontalArrangement = Arrangement.End
             ) {
                 TextButton(onClick = { /* Handle forgot password */ }) {
-                    Text("Forgot Password?", color = Color(0xFF757575))
+                    Text(stringResource(R.string.forgot_password), color = Color(0xFF757575))
                 }
             }
         Spacer(modifier = Modifier.height(8.dp))
 
         PrimaryButton(
-            text = "Login",
+            text = stringResource(R.string.login),
             onClick = {
                 when {
                     email.isBlank() -> {
-                        validationError = "Please enter your email"
+                        validationError = context.getString(R.string.error_enter_email)
                     }
                     password.isBlank() -> {
-                        validationError = "Please enter your password"
+                        validationError = context.getString(R.string.error_enter_password)
                     }
                     !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
-                        validationError = "Please enter a valid email address"
+                        validationError = context.getString(R.string.error_valid_email)
                     }
                     else -> {
                         userViewModel.loginUser(email.trim().lowercase(), password)
@@ -246,7 +251,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        DividerWithText(text = "Or Login with")
+        DividerWithText(text = stringResource(R.string.or_login_with))
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -274,7 +279,7 @@ fun LoginScreen(
                                         email = savedEmail
                                         Toast.makeText(
                                             context,
-                                            "Authentication successful! Please enter your password.",
+                                            context.getString(R.string.authentication_successful),
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
@@ -289,13 +294,13 @@ fun LoginScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Fingerprint,
-                    contentDescription = "Biometric Login",
+                    contentDescription = stringResource(R.string.login_with_biometric),
                     modifier = Modifier.size(48.dp),
                     tint = Color(0xFF64B5F6)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Login with Biometric",
+                    text = stringResource(R.string.login_with_biometric),
                     fontSize = 14.sp,
                     color = Color(0xFF64B5F6),
                     fontWeight = FontWeight.Medium
@@ -317,19 +322,19 @@ fun LoginScreen(
         ) {
             Icon(
                 imageVector = Icons.Default.PersonOff,
-                contentDescription = "Guest Mode",
+                contentDescription = stringResource(R.string.guest_mode),
                 modifier = Modifier.size(32.dp),
                 tint = Color(0xFF757575)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Continue as Guest",
+                text = stringResource(R.string.continue_as_guest),
                 fontSize = 14.sp,
                 color = Color(0xFF757575),
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = "Access app without signing in",
+                text = stringResource(R.string.guest_mode_description),
                 fontSize = 11.sp,
                 color = Color(0xFFBDBDBD)
             )
@@ -342,12 +347,12 @@ fun LoginScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Don't have an account? ", color = Color(0xFF212121))
+            Text(stringResource(R.string.dont_have_account), color = Color(0xFF212121))
             TextButton(
                 onClick = { navController.navigate("register") },
                 contentPadding = PaddingValues(0.dp)
             ) {
-                Text("Register Now", color = Color(0xFF26C6DA))
+                Text(stringResource(R.string.register_now), color = Color(0xFF26C6DA))
             }
         }
     }

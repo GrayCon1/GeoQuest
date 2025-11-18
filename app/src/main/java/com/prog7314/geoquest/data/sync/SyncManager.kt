@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
 import com.prog7314.geoquest.data.local.GeoQuestDatabase
 import com.prog7314.geoquest.data.local.toLocationData
 import com.prog7314.geoquest.data.local.toLocationEntity
@@ -39,50 +40,114 @@ class SyncManager(private val context: Context) {
             return@withContext Result.failure(Exception("No internet connection"))
         }
 
+        // Check if user is authenticated
+        val auth = FirebaseAuth.getInstance()
+        if (auth.currentUser == null) {
+            return@withContext Result.failure(Exception("User not logged in. Please log in to sync."))
+        }
+
+        val syncResult = SyncResult()
+        var hasError = false
+        var errorMessage: String? = null
+
         try {
-            val syncResult = SyncResult()
-
             // 1. Upload unsynced locations
-            val unsyncedLocations = locationDao.getUnsyncedLocations()
-            Log.d(TAG, "Found ${unsyncedLocations.size} unsynced locations")
+            try {
+                val unsyncedLocations = locationDao.getUnsyncedLocations()
+                Log.d(TAG, "Found ${unsyncedLocations.size} unsynced locations")
 
-            unsyncedLocations.forEach { entity ->
-                val result = locationRepo.addLocation(entity.toLocationData())
-                if (result.isSuccess) {
-                    locationDao.markAsSynced(entity.id)
-                    syncResult.uploadedCount++
-                    Log.d(TAG, "Successfully synced location: ${entity.name}")
-                } else {
-                    syncResult.failedCount++
-                    Log.e(TAG, "Failed to sync location: ${entity.name}", result.exceptionOrNull())
+                unsyncedLocations.forEach { entity ->
+                    try {
+                        val result = locationRepo.addLocation(entity.toLocationData())
+                        if (result.isSuccess) {
+                            locationDao.markAsSynced(entity.id)
+                            syncResult.uploadedCount++
+                            Log.d(TAG, "Successfully synced location: ${entity.name}")
+                        } else {
+                            syncResult.failedCount++
+                            val error = result.exceptionOrNull()
+                            Log.e(TAG, "Failed to sync location: ${entity.name}", error)
+                            if (errorMessage == null) {
+                                errorMessage = "Failed to upload: ${error?.message ?: "Unknown error"}"
+                            }
+                        }
+                    } catch (e: Exception) {
+                        syncResult.failedCount++
+                        Log.e(TAG, "Exception syncing location: ${entity.name}", e)
+                        if (errorMessage == null) {
+                            errorMessage = "Error uploading: ${e.message}"
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                hasError = true
+                Log.e(TAG, "Error getting unsynced locations", e)
+                if (errorMessage == null) {
+                    errorMessage = "Error reading locations: ${e.message}"
                 }
             }
 
             // 2. Process deleted locations
-            val deletedLocations = locationDao.getDeletedUnsyncedLocations()
-            Log.d(TAG, "Found ${deletedLocations.size} deleted locations to sync")
+            try {
+                val deletedLocations = locationDao.getDeletedUnsyncedLocations()
+                Log.d(TAG, "Found ${deletedLocations.size} deleted locations to sync")
 
-            deletedLocations.forEach { entity ->
-                val result = locationRepo.deleteLocation(entity.id)
-                if (result.isSuccess) {
-                    locationDao.deleteLocation(entity.id) // Hard delete after sync
-                    syncResult.deletedCount++
-                    Log.d(TAG, "Successfully deleted location from Firebase: ${entity.name}")
-                } else {
-                    syncResult.failedCount++
-                    Log.e(TAG, "Failed to delete location from Firebase: ${entity.name}", result.exceptionOrNull())
+                deletedLocations.forEach { entity ->
+                    try {
+                        val result = locationRepo.deleteLocation(entity.id)
+                        if (result.isSuccess) {
+                            locationDao.deleteLocation(entity.id) // Hard delete after sync
+                            syncResult.deletedCount++
+                            Log.d(TAG, "Successfully deleted location from Firebase: ${entity.name}")
+                        } else {
+                            syncResult.failedCount++
+                            val error = result.exceptionOrNull()
+                            Log.e(TAG, "Failed to delete location from Firebase: ${entity.name}", error)
+                            if (errorMessage == null) {
+                                errorMessage = "Failed to delete: ${error?.message ?: "Unknown error"}"
+                            }
+                        }
+                    } catch (e: Exception) {
+                        syncResult.failedCount++
+                        Log.e(TAG, "Exception deleting location: ${entity.name}", e)
+                        if (errorMessage == null) {
+                            errorMessage = "Error deleting: ${e.message}"
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                hasError = true
+                Log.e(TAG, "Error getting deleted locations", e)
+                if (errorMessage == null) {
+                    errorMessage = "Error reading deletions: ${e.message}"
                 }
             }
 
             // 3. Cleanup synced deleted locations
-            locationDao.cleanupSyncedDeletedLocations()
+            try {
+                locationDao.cleanupSyncedDeletedLocations()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error cleaning up deleted locations", e)
+                // Don't fail sync for cleanup errors
+            }
 
             Log.d(TAG, "Sync completed: $syncResult")
-            Result.success(syncResult)
+            
+            // Return success if we processed items, even if some failed
+            // Only return failure if we couldn't even start the sync process
+            if (hasError && syncResult.uploadedCount == 0 && syncResult.deletedCount == 0) {
+                Result.failure(Exception(errorMessage ?: "Sync failed"))
+            } else {
+                // Attach error message to result if there were failures
+                if (errorMessage != null && syncResult.failedCount > 0) {
+                    syncResult.errorMessage = errorMessage
+                }
+                Result.success(syncResult)
+            }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Sync failed", e)
-            Result.failure(e)
+            Log.e(TAG, "Sync failed with exception", e)
+            Result.failure(Exception("Sync failed: ${e.message}", e))
         }
     }
 
@@ -101,8 +166,13 @@ class SyncManager(private val context: Context) {
             if (result.isSuccess) {
                 val locations = result.getOrNull() ?: emptyList()
 
+                // Filter out locations that are marked as deleted locally
+                val locationsToInsert = locations.filter { location ->
+                    !locationDao.isLocationDeleted(location.id)
+                }
+
                 // Convert to entities and mark as synced
-                val entities = locations.map { it.toLocationEntity(isSynced = true) }
+                val entities = locationsToInsert.map { it.toLocationEntity(isSynced = true) }
 
                 // Insert into local database
                 locationDao.insertLocations(entities)
@@ -133,8 +203,13 @@ class SyncManager(private val context: Context) {
                 val locations = result.getOrNull() ?: emptyList()
                 val publicLocations = locations.filter { it.visibility == "public" }
 
+                // Filter out locations that are marked as deleted locally
+                val locationsToInsert = publicLocations.filter { location ->
+                    !locationDao.isLocationDeleted(location.id)
+                }
+
                 // Convert to entities and mark as synced
-                val entities = publicLocations.map { it.toLocationEntity(isSynced = true) }
+                val entities = locationsToInsert.map { it.toLocationEntity(isSynced = true) }
 
                 // Insert into local database
                 locationDao.insertLocations(entities)
@@ -161,7 +236,8 @@ class SyncManager(private val context: Context) {
 data class SyncResult(
     var uploadedCount: Int = 0,
     var deletedCount: Int = 0,
-    var failedCount: Int = 0
+    var failedCount: Int = 0,
+    var errorMessage: String? = null
 ) {
     override fun toString(): String {
         return "Uploaded: $uploadedCount, Deleted: $deletedCount, Failed: $failedCount"
