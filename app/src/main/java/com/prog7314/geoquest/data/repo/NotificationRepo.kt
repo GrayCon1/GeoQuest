@@ -1,9 +1,19 @@
 package com.prog7314.geoquest.data.repo
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.prog7314.geoquest.MainActivity
+import com.prog7314.geoquest.R
 import com.prog7314.geoquest.data.data.NotificationData
 import com.prog7314.geoquest.data.data.NotificationType
 import kotlinx.coroutines.channels.awaitClose
@@ -22,6 +32,8 @@ class NotificationRepo {
 
     companion object {
         private const val TAG = "NotificationRepo"
+        private const val CHANNEL_ID = "geoquest_notifications"
+        private const val CHANNEL_NAME = "GeoQuest Notifications"
     }
 
     /**
@@ -57,16 +69,79 @@ class NotificationRepo {
     /**
      * Add a new notification
      */
-    suspend fun addNotification(notification: NotificationData): Result<NotificationData> {
+    suspend fun addNotification(notification: NotificationData, context: Context? = null): Result<NotificationData> {
         return try {
             val docRef = notificationsCollection.document()
             val notificationWithId = notification.copy(id = docRef.id)
             docRef.set(notificationWithId).await()
             Log.d(TAG, "Notification added: ${docRef.id}")
+            
+            // Show local notification if context is provided
+            context?.let {
+                showLocalNotification(it, notificationWithId)
+            }
+            
             Result.success(notificationWithId)
         } catch (e: Exception) {
             Log.e(TAG, "Error adding notification", e)
             Result.failure(e)
+        }
+    }
+    
+    /**
+     * Show a local system notification
+     */
+    private fun showLocalNotification(context: Context, notification: NotificationData) {
+        try {
+            createNotificationChannel(context)
+            
+            val intent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra("notification_id", notification.id)
+                putExtra("notification_type", notification.type.name)
+            }
+            
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                notification.id.hashCode(),
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            
+            val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_info) // Fallback icon
+                .setContentTitle(notification.title)
+                .setContentText(notification.message)
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(pendingIntent)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(notification.message))
+            
+            val notificationManager = ContextCompat.getSystemService(context, NotificationManager::class.java)
+            notificationManager?.notify(notification.id.hashCode(), notificationBuilder.build())
+            Log.d(TAG, "Local notification shown: ${notification.title}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing local notification", e)
+        }
+    }
+    
+    /**
+     * Create notification channel for Android O+
+     */
+    private fun createNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifications for GeoQuest app"
+                enableLights(true)
+                enableVibration(true)
+            }
+            
+            val notificationManager = ContextCompat.getSystemService(context, NotificationManager::class.java)
+            notificationManager?.createNotificationChannel(channel)
         }
     }
 
@@ -173,18 +248,19 @@ class NotificationRepo {
     suspend fun notifyLocationAdded(
         userId: String,
         locationId: String,
-        locationName: String
+        locationName: String,
+        context: Context? = null
     ): Result<Unit> {
         return try {
             val notification = NotificationData(
                 userId = userId,
                 type = NotificationType.LOCATION_ADDED,
                 title = "New Location Added",
-                message = "A new location has been added",
+                message = "Location '$locationName' has been added successfully",
                 locationId = locationId,
                 locationName = locationName
             )
-            addNotification(notification)
+            addNotification(notification, context)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

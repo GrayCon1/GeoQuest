@@ -89,7 +89,8 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                         notificationRepo.notifyLocationAdded(
                             userId = location.userId,
                             locationId = location.id,
-                            locationName = location.name
+                            locationName = location.name,
+                            context = getApplication()
                         )
                         _syncStatus.value = "Location saved online"
                     } else {
@@ -103,7 +104,8 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
                     notificationRepo.notifyLocationAdded(
                         userId = location.userId,
                         locationId = location.id,
-                        locationName = location.name
+                        locationName = location.name,
+                        context = getApplication()
                     ).onFailure { e ->
                         // Notification creation failed offline - this is expected if Firestore offline persistence is not enabled
                         // The notification will be created when syncing online
