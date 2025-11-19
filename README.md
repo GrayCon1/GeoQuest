@@ -32,11 +32,11 @@ GeoQuest's goal is to combine location tracking, social sharing, and gamified ex
 GeoQuest is designed to be a comprehensive location-sharing and exploration platform that enables users to:
 
 - **Discover Places**: Explore interesting locations shared by the community on an interactive map
-- **Save Memories**: Create personal location collections with photos, descriptions, and custom names
+- **Save Locations**: Create personal location collections with photos, descriptions, and custom names
 - **Share Experiences**: Choose to share favorite spots publicly or keep them private
-- **Gamify Exploration**: Earn points, badges, and achievements for exploring and adding locations
+- **Gamify Locations**: Earn points, badges, and achievements for exploring and adding locations
 - **Work Offline**: Add and view locations even without internet connectivity, with automatic synchronization when online
-- **Stay Connected**: Receive real-time notifications about location updates, achievements, and nearby places
+- **Stay Connected**: Receive real-time notifications about location updates, and nearby places
 
 The app serves both casual users who want to remember places they've visited and active explorers who want to discover new locations and share their adventures with others.
 
@@ -45,6 +45,7 @@ The app serves both casual users who want to remember places they've visited and
 ## 🎨 Design Considerations
 
 ### **User Interface Design**
+
 - **Material Design 3**: Modern, clean UI following Google's Material Design guidelines
 - **Consistent Color Scheme**: Custom color palette with primary, secondary, and accent colors for visual consistency
 - **Responsive Layout**: Adaptive layouts that work across different screen sizes
@@ -52,6 +53,7 @@ The app serves both casual users who want to remember places they've visited and
 - **Visual Feedback**: Loading states, success/error messages, and sync status indicators
 
 ### **User Experience**
+
 - **Offline-First Approach**: Core features work without internet, ensuring users can always access their data
 - **Real-Time Updates**: Live synchronization with Firebase for instant data updates across devices
 - **Accessibility**: Support for multiple languages (English and Afrikaans) to serve South African users
@@ -59,9 +61,9 @@ The app serves both casual users who want to remember places they've visited and
 - **Performance**: Local caching with Room Database for fast data access
 
 ### **Architecture**
+
 - **MVVM Pattern**: Separation of concerns with ViewModels managing business logic
 - **Repository Pattern**: Centralized data access layer for Firebase and local database
-- **Dependency Injection**: Using ViewModel factories for testable, maintainable code
 - **Coroutines**: Asynchronous operations for smooth UI performance
 
 ---
@@ -69,36 +71,39 @@ The app serves both casual users who want to remember places they've visited and
 ## 🚀 Key Features
 
 ### Core Features
+
 - 🗺️ **Interactive Map** - Live user location with Google Maps integration
 - 📍 **Location Management** - Add, edit, and delete custom locations
 - 🌍 **Privacy Controls** - Public and private location visibility options
 - 🖼️ **Image Upload** - Upload and store images for locations using Firebase Storage
-- 🧭 **Gamification** - Points, badges, and achievements system
 - 👥 **Shared Map** - Community exploration with public location sharing
 - 🔍 **Filtering** - Filter locations by visibility (Public/Private/All)
 
 ### POE-Required Features
+
 - 🔐 **Single Sign-On (SSO)** - Google Sign-In authentication
 - 👆 **Biometric Authentication** - Fingerprint and facial recognition support
 - ⚙️ **Settings Menu** - Comprehensive app settings and preferences
 - 🌐 **REST API Integration** - Custom RESTful API connected to Firebase database
 - 📱 **Offline Mode with Sync** - Room Database with automatic synchronization
 - 🔔 **Real-Time Notifications** - Firebase Cloud Messaging push notifications
-- 🌍 **Multi-Language Support** - English and Afrikaans (South African languages)
+- 🌍 **Multi-Language Support** - English and Afrikaans support
 
 ---
 
 ## 📱 POE Features Implementation
 
 ### 1. Single Sign-On (SSO) Authentication ✅
+
 **Implementation**: Google Sign-In integration using Firebase Authentication
 
 - Users can register and login using their Google account
 - Secure token-based authentication
 - Automatic session management
-- Seamless user experience with one-tap sign-in
+- Seamless user experience
 
 **Technical Details**:
+
 - Uses Firebase Authentication SDK
 - OAuth 2.0 flow for Google Sign-In
 - Secure token storage and management
@@ -106,21 +111,22 @@ The app serves both casual users who want to remember places they've visited and
 ---
 
 ### 2. Biometric Authentication ✅
+
 **Implementation**: Fingerprint and facial recognition for secure user authentication
 
 **Features**:
+
 - Automatic biometric prompt on app launch (if enabled)
-- Manual biometric login option
-- Settings toggle to enable/disable biometric authentication
 - Email auto-fill after successful biometric authentication
-- Hardware-backed security using Android BiometricPrompt API
 
 **User Flow**:
+
 1. User logs in with email/password → Biometric automatically enabled
 2. Next app launch → Biometric prompt appears automatically
 3. User scans fingerprint/face → Email auto-fills → Enter password → Login
 
 **Technical Implementation**:
+
 - `BiometricAuthHelper.kt` - Core authentication utility
 - `BiometricPreferences.kt` - Preference management
 - Uses `BiometricManager.Authenticators.BIOMETRIC_STRONG` for maximum security
@@ -128,9 +134,11 @@ The app serves both casual users who want to remember places they've visited and
 ---
 
 ### 3. Settings Menu ✅
+
 **Implementation**: Comprehensive settings screen with user preferences
 
 **Available Settings**:
+
 - **Language Selection**: Switch between English and Afrikaans
 - **Biometric Authentication**: Enable/disable biometric login
 - **Account Management**: View user profile, email
@@ -138,6 +146,7 @@ The app serves both casual users who want to remember places they've visited and
 - **Theme Preferences**: (Future enhancement)
 
 **Technical Details**:
+
 - Persistent preferences using SharedPreferences
 - Real-time language switching with app restart
 - Biometric settings integration with authentication system
@@ -145,15 +154,18 @@ The app serves both casual users who want to remember places they've visited and
 ---
 
 ### 4. REST API Connection ✅
+
 **Implementation**: Custom RESTful API connected to Firebase database
 
 **API Architecture**:
+
 - **Backend**: Node.js + Express server
 - **Database**: Firebase Firestore (NoSQL)
 - **Client**: Retrofit for HTTP requests
 - **Authentication**: Firebase Auth tokens for secure API calls
 
 **API Endpoints**:
+
 - `GET /locations` - Fetch user locations
 - `POST /locations` - Create new location
 - `PUT /locations/:id` - Update location
@@ -161,6 +173,7 @@ The app serves both casual users who want to remember places they've visited and
 - `GET /notifications` - Fetch user notifications
 
 **Data Flow**:
+
 ```
 Android App → Retrofit → Express API → Firebase Firestore → Response → App
 ```
@@ -168,9 +181,11 @@ Android App → Retrofit → Express API → Firebase Firestore → Response →
 ---
 
 ### 5. Offline Mode with Synchronization ✅
+
 **Implementation**: Room Database (SQLite) with automatic sync to Firebase
 
 **Features**:
+
 - **Offline Storage**: All locations saved locally using Room Database
 - **Automatic Sync**: Background synchronization when online
 - **Sync Status Indicators**: Visual feedback showing online/offline status
@@ -178,6 +193,7 @@ Android App → Retrofit → Express API → Firebase Firestore → Response →
 - **Conflict Resolution**: Last-write-wins strategy based on timestamps
 
 **Database Schema**:
+
 ```kotlin
 LocationEntity(
     id: String,
@@ -188,19 +204,21 @@ LocationEntity(
     longitude: Double,
     imageUri: String?,
     visibility: String,
-    isSynced: Boolean,      // Tracks sync status
-    isDeleted: Boolean,     // Soft delete support
+    isSynced: Boolean,
+    isDeleted: Boolean,
     dateAdded: Long
 )
 ```
 
 **User Experience**:
+
 - **Online**: Data syncs immediately to Firebase and caches locally
 - **Offline**: Data saved locally with `isSynced=false` flag
 - **Reconnect**: Automatic sync uploads all unsynced data
 - **Visual Feedback**: Status badge shows sync state and unsynced count
 
 **Technical Implementation**:
+
 - `LocationEntity.kt` - Room database entity
 - `LocationDao.kt` - Data access object
 - `GeoQuestDatabase.kt` - Room database configuration
@@ -209,26 +227,26 @@ LocationEntity(
 ---
 
 ### 6. Real-Time Push Notifications ✅
+
 **Implementation**: Firebase Cloud Messaging (FCM) with Firestore persistence
 
 **Notification Types**:
+
 - 📍 **Location Added** - When user adds a new location
 - 🗺️ **Location Nearby** - When user is near a saved location
-- 🏆 **Achievement Unlocked** - When user completes milestones
 - ⭐ **Points Earned** - When user earns points for activities
-- 👥 **Friend Activity** - When friends interact with locations
-- ⚙️ **System Notifications** - App updates and announcements
+- ⚙️ **System Notifications** - App updates and announcements (Future development)
 - 🔔 **General Notifications** - Other app-related updates
 
 **Features**:
+
 - Real-time notification delivery via FCM
 - Persistent notification storage in Firestore
 - Unread notification badge count
 - Notification history screen
-- Color-coded notification types
-- Deep linking support
 
 **Technical Implementation**:
+
 - `GeoQuestMessagingService.kt` - FCM service handler
 - `NotificationData.kt` - Notification data models
 - `NotificationRepo.kt` - Notification repository
@@ -236,28 +254,30 @@ LocationEntity(
 - Real-time Firestore listeners for instant updates
 
 **User Experience**:
-- System notifications appear even when app is closed
+
 - In-app notification center shows all notifications
-- Mark as read/unread functionality
-- Delete individual or all notifications
+- Clear notifications
 
 ---
 
 ### 7. Multi-Language Support ✅
-**Implementation**: English and Afrikaans (South African languages)
+
+**Implementation**: English and Afrikaans support
 
 **Supported Languages**:
+
 - **English** (en) - Default language
-- **Afrikaans** (af) - South African language
+- **Afrikaans** (af) - Optional language
 
 **Features**:
+
 - Complete UI translation for both languages
 - Language selection in Settings
 - Persistent language preference
 - Runtime language switching
-- Locale-aware date and number formatting
 
 **Technical Implementation**:
+
 - `LocaleHelper.kt` - Locale management utility
 - `LanguagePreferences.kt` - Language preference storage
 - `values/strings.xml` - English strings
@@ -265,6 +285,7 @@ LocationEntity(
 - Dynamic locale switching with app restart
 
 **Translation Coverage**:
+
 - All UI strings translated
 - Error messages translated
 - Notification messages translated
@@ -275,12 +296,14 @@ LocationEntity(
 ## ⚙️ Tech Stack
 
 ### Frontend
+
 - **[Jetpack Compose](https://developer.android.com/jetpack/compose)** – Modern declarative UI toolkit for Android
 - **[Kotlin](https://kotlinlang.org/)** – Primary development language
 - **[Material Design 3](https://m3.material.io/)** – Clean, modern UI components
 - **[Navigation Component](https://developer.android.com/guide/navigation)** – In-app navigation
 
 ### Backend & Cloud
+
 - **[Firebase Firestore](https://firebase.google.com/docs/firestore)** – NoSQL cloud database for data storage and synchronization
 - **[Firebase Authentication](https://firebase.google.com/docs/auth)** – Secure Google Sign-In integration
 - **[Firebase Storage](https://firebase.google.com/docs/storage)** – For image and media uploads
@@ -289,18 +312,21 @@ LocationEntity(
 - **[Node.js + Express](https://expressjs.com/)** – RESTful API server
 
 ### Local Storage
+
 - **[Room Database](https://developer.android.com/training/data-storage/room)** – Local SQLite database for offline storage
 - **[SharedPreferences](https://developer.android.com/training/data-storage/shared-preferences)** – User preferences storage
 
 ### Libraries & Tools
+
 - **[Retrofit](https://square.github.io/retrofit/)** – HTTP client for REST API calls
 - **[Coroutines](https://kotlinlang.org/docs/coroutines-overview.html)** – Asynchronous programming
 - **[ViewModel](https://developer.android.com/topic/libraries/architecture/viewmodel)** – UI-related data holder
 - **[LiveData](https://developer.android.com/topic/libraries/architecture/livedata)** – Observable data holder
-- **[Coil](https://coil-kt.github.io/coil/)** – Image loading library
 - **[Android Studio](https://developer.android.com/studio)** – Primary IDE
+- **[Visual Studio Code](https://code.visualstudio.com/)** - Secondary IDE
 
 ### Development Tools
+
 - **[GitHub](https://github.com/)** – Version control and collaboration
 - **[GitHub Actions](https://github.com/features/actions)** – CI/CD automation
 - **[ChatGPT](https://chatgpt.com)** – Used for research and coding suggestions
@@ -311,6 +337,7 @@ LocationEntity(
 ## 🔧 GitHub & GitHub Actions
 
 ### Version Control
+
 - **Repository**: All source code committed to GitHub
 - **Branch Strategy**: Main branch (`master`) for production code
 - **Commit History**: Regular commits with descriptive messages
@@ -318,14 +345,16 @@ LocationEntity(
 - **Logging**: Strategic logging throughout codebase for debugging
 
 ### GitHub Actions Workflow
+
 **Location**: `.github/workflows/build.yml`
 
 **Automated Testing & Building**:
+
 - **Trigger**: Runs on push to `master` branch or manual workflow dispatch
 - **Environment**: Ubuntu latest with JDK 17
 - **Steps**:
   1. Checkout repository code
-  2. Set up JDK 17 (Zulu distribution)
+  2. Set up JDK 17
   3. Run Gradle tests (`./gradlew test`)
   4. Build Gradle project (`./gradlew build`)
   5. Build APK Debug (`./gradlew assembleDebug`)
@@ -334,13 +363,15 @@ LocationEntity(
   8. Upload artifacts (APK Debug, APK Release, AAB Release)
 
 **Benefits**:
+
 - ✅ Ensures code compiles on clean environment
 - ✅ Runs automated tests before building
 - ✅ Generates release-ready APK and AAB files
 - ✅ Provides downloadable artifacts for testing
 - ✅ Validates code works beyond local machine
 
-**Workflow Status**: 
+**Workflow Status**:
+
 - ✅ Configured and active
 - ✅ Builds successfully on each commit
 - ✅ Artifacts available in GitHub Actions tab
@@ -354,12 +385,14 @@ LocationEntity(
 #### 🎉 New Features Added Since Prototype
 
 **1. Biometric Authentication** 🔐
+
 - Added fingerprint and facial recognition support
 - Automatic biometric prompt on app launch
 - Settings toggle to enable/disable biometric authentication
 - Secure hardware-backed authentication using Android BiometricPrompt API
 
 **2. Offline Mode with Synchronization** 📱
+
 - Implemented Room Database for local storage
 - Full CRUD operations work offline
 - Automatic background synchronization when online
@@ -368,14 +401,15 @@ LocationEntity(
 - Conflict resolution with last-write-wins strategy
 
 **3. Real-Time Push Notifications** 🔔
+
 - Integrated Firebase Cloud Messaging (FCM)
-- 7 different notification types with color coding
 - Persistent notification storage in Firestore
 - Real-time notification updates
 - Unread notification badge count
 - Notification history screen with mark as read/delete functionality
 
 **4. Multi-Language Support** 🌍
+
 - Added Afrikaans language support
 - Complete UI translation for English and Afrikaans
 - Language selection in Settings
@@ -383,6 +417,7 @@ LocationEntity(
 - Runtime language switching
 
 **5. Enhanced Settings Screen** ⚙️
+
 - Comprehensive settings menu
 - Language selection dropdown
 - Biometric authentication toggle
@@ -420,6 +455,7 @@ LocationEntity(
 ## 🚀 Installation & Setup
 
 ### Prerequisites
+
 - Android Studio Hedgehog or later
 - JDK 17 or later
 - Android SDK (API 24+)
@@ -429,20 +465,24 @@ LocationEntity(
 ### Setup Instructions
 
 1. **Clone the Repository**
+
    ```bash
    git clone https://github.com/GrayCon1/GeoQuest.git
    cd GeoQuest
    ```
 
 2. **Firebase Configuration**
+
    - Download `google-services.json` from Firebase Console
    - Place it in `app/` directory
 
 3. **Google Maps API Key**
+
    - Obtain API key from Google Cloud Console
    - Add to `AndroidManifest.xml` (already configured)
 
 4. **Build the Project**
+
    ```bash
    ./gradlew build
    ```
@@ -452,6 +492,7 @@ LocationEntity(
    - Run `./gradlew installDebug` or use Android Studio
 
 ### Build Requirements
+
 - Minimum SDK: 24 (Android 7.0)
 - Target SDK: 34 (Android 14)
 - Compile SDK: 34
@@ -460,9 +501,8 @@ LocationEntity(
 
 ## 🎥 Demonstration Video
 
-**Video Link**: [Add YouTube link here after uploading]
-
 The demonstration video showcases:
+
 - ✅ User registration and login using SSO (Google Sign-In)
 - ✅ Biometric authentication (fingerprint/facial recognition)
 - ✅ Settings menu functionality
@@ -470,13 +510,13 @@ The demonstration video showcases:
 - ✅ Offline mode with synchronization capabilities
 - ✅ Real-time push notifications
 - ✅ Multi-language support (English and Afrikaans)
-- ✅ All core features from Part 1
+- ✅ All core features from Part 1 and Part 2
 
 **Video Requirements Met**:
+
 - ✅ Professional presentation with voice-over
 - ✅ Shows all required features
 - ✅ Demonstrates data stored in Firebase (authentication, API, database)
-- ✅ Shows app running on physical mobile device
 
 ---
 
@@ -489,15 +529,17 @@ The demonstration video showcases:
 ✅ **App Bundle (AAB)**: Generated for Play Store upload  
 ✅ **Screenshots**: Prepared for Play Store listing  
 ✅ **App Description**: Comprehensive description written  
-✅ **Privacy Policy**: (To be added if required)  
-
-### Play Store Console Evidence
+✅ **Privacy Policy**: (To be added if required)
 
 **Screenshots**:
-- [Add screenshot of app uploaded to Google Play Console]
-- [Add screenshot of app bundle upload]
+![Process 1](app/src/main/Process1.png)
+![Process 2](app/src/main/Process2.png)
+![Process 3](app/src/main/Process3.png)
+![Process 4](app/src/main/Process4.png)
+![Process 5](app/src/main/Process5.png)
 
 **APK Information**:
+
 - **Package Name**: `com.prog7314.geoquest`
 - **Version Code**: [Current version]
 - **Version Name**: 2.0
@@ -505,10 +547,10 @@ The demonstration video showcases:
 - **Target SDK**: 34
 
 ### Publication Status
-- ✅ App bundle (AAB) generated
+
+- ✅ App bundle generated
 - ✅ Signed with release keystore
 - ✅ Ready for Play Store upload
-- ⏳ Awaiting final approval for publication
 
 ---
 
@@ -520,18 +562,18 @@ _IIE Varsity College – BSc Computer Science (Application Development)_
 Cape Town, South Africa
 
 - **GitHub**: [https://github.com/GrayCon1](https://github.com/GrayCon1)
-- **Email**: [Add email if desired]
-- **LinkedIn**: [Add LinkedIn if desired]
 
 ### Development Timeline
+
 - **Part 1**: Research, Planning and Design
 - **Part 2**: App Prototype Development
 - **Final POE**: Feature additions, improvements, and finalization
 
 ### Acknowledgments
+
 - **Module**: PROG7314 - Programming 3D
 - **Institution**: IIE Varsity College
-- **AI Tools Used**: ChatGPT for research and coding suggestions, Microsoft Copilot for error fixing
+- **AI Tools Used**: ChatGPT for research and coding suggestions, Claude 4.5 for error fixing, Gemini 2.5 Flash for terminal debugging
 
 ---
 
@@ -543,14 +585,15 @@ This project is developed as part of the **PROG7314** module and is intended for
 
 ## 📸 Screenshots
 
-[Add app screenshots here]
-- Login Screen with Biometric Authentication
-- Home Screen with Interactive Map
-- Add Location Screen
-- Logbook Screen
-- Settings Screen
-- Notifications Screen
-- Offline Mode Indicator
+![Login Screen](app/src/main/1.png)
+![Registration Screen](app/src/main/2.png)
+![Home Screen with Interactive Map](app/src/main/3.png)
+![Filter Screen](app/src/main/4.png)
+![Notifications Screen](app/src/main/5.png)
+![Logbook Screen](app/src/main/6.png)
+![Add Location Screen](app/src/main/7.png)
+![Settings Screen](app/src/main/8.png)
+![Language](app/src/main/9.png)
 
 ---
 
@@ -564,6 +607,5 @@ This project is developed as part of the **PROG7314** module and is intended for
 
 ---
 
-**Last Updated**: [Current Date]  
-**Version**: 2.0  
-**Status**: ✅ Ready for POE Submission
+**Last Updated**: [11/18/2025]  
+**Version**: 2.0
