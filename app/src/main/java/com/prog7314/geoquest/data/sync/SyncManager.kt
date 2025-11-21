@@ -16,7 +16,7 @@ class SyncManager(private val context: Context) {
 
     private val database = GeoQuestDatabase.getDatabase(context)
     private val locationDao = database.locationDao()
-    private val locationRepo = LocationRepo()
+    private val locationRepo = LocationRepo(context)
 
     companion object {
         private const val TAG = "SyncManager"

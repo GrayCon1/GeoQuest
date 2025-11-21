@@ -22,6 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.prog7314.geoquest.data.data.NotificationData
@@ -41,7 +42,11 @@ fun NotificationScreenPreview() {
 fun NotificationScreen(
     navController: NavController,
     userViewModel: UserViewModel = viewModel(),
-    notificationViewModel: NotificationViewModel = viewModel()
+    notificationViewModel: NotificationViewModel = viewModel(
+        factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
+            LocalContext.current.applicationContext as android.app.Application
+        )
+    )
 ) {
     val currentUser by userViewModel.currentUser.collectAsState()
     val notifications by notificationViewModel.notifications.collectAsState()

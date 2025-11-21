@@ -14,6 +14,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.prog7314.geoquest.MainActivity
 import com.prog7314.geoquest.R
+import com.prog7314.geoquest.data.api.ApiRepository
 import com.prog7314.geoquest.data.data.NotificationData
 import com.prog7314.geoquest.data.data.NotificationType
 import kotlinx.coroutines.channels.awaitClose
@@ -24,9 +25,10 @@ import kotlinx.coroutines.tasks.await
 /**
  * Repository for managing notifications
  */
-class NotificationRepo {
+class NotificationRepo(private val context: Context? = null) {
 
     private val auth = FirebaseAuth.getInstance()
+    private val apiRepository = context?.let { ApiRepository(it) }
     private val firestore = FirebaseFirestore.getInstance()
     private val notificationsCollection = firestore.collection("notifications")
 
@@ -38,8 +40,11 @@ class NotificationRepo {
 
     /**
      * Get real-time notifications for the current user
+     * Note: Real-time updates still use Firestore listener for instant updates
+     * API is used for initial load and CRUD operations
      */
     fun getUserNotificationsFlow(userId: String): Flow<List<NotificationData>> = callbackFlow {
+        // Use Firestore listener for real-time updates
         val listenerRegistration = notificationsCollection
             .whereEqualTo("userId", userId)
             .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -70,21 +75,44 @@ class NotificationRepo {
      * Add a new notification
      */
     suspend fun addNotification(notification: NotificationData, context: Context? = null): Result<NotificationData> {
-        return try {
-            val docRef = notificationsCollection.document()
-            val notificationWithId = notification.copy(id = docRef.id)
-            docRef.set(notificationWithId).await()
-            Log.d(TAG, "Notification added: ${docRef.id}")
-            
-            // Show local notification if context is provided
-            context?.let {
-                showLocalNotification(it, notificationWithId)
+        return if (apiRepository != null) {
+            try {
+                val result = apiRepository.createNotification(notification)
+                val notificationWithId = result.getOrThrow()
+                Log.d(TAG, "Notification added via API: ${notificationWithId.id}")
+                
+                // Show local notification if context is provided
+                context?.let {
+                    showLocalNotification(it, notificationWithId)
+                }
+                
+                Result.success(notificationWithId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error adding notification via API", e)
+                // Fallback to Firestore if API fails
+                try {
+                    val docRef = notificationsCollection.document()
+                    val notificationWithId = notification.copy(id = docRef.id)
+                    docRef.set(notificationWithId).await()
+                    context?.let { showLocalNotification(it, notificationWithId) }
+                    Result.success(notificationWithId)
+                } catch (firestoreError: Exception) {
+                    Log.e(TAG, "Error adding notification via Firestore fallback", firestoreError)
+                    Result.failure(firestoreError)
+                }
             }
-            
-            Result.success(notificationWithId)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error adding notification", e)
-            Result.failure(e)
+        } else {
+            // Fallback to Firestore if API not available
+            try {
+                val docRef = notificationsCollection.document()
+                val notificationWithId = notification.copy(id = docRef.id)
+                docRef.set(notificationWithId).await()
+                context?.let { showLocalNotification(it, notificationWithId) }
+                Result.success(notificationWithId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error adding notification", e)
+                Result.failure(e)
+            }
         }
     }
     
@@ -149,15 +177,36 @@ class NotificationRepo {
      * Mark notification as read
      */
     suspend fun markAsRead(notificationId: String): Result<Unit> {
-        return try {
-            notificationsCollection.document(notificationId)
-                .update("isRead", true)
-                .await()
-            Log.d(TAG, "Notification marked as read: $notificationId")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error marking notification as read", e)
-            Result.failure(e)
+        return if (apiRepository != null) {
+            try {
+                // Get notification first to update it
+                val notifications = apiRepository.getNotifications(1000).getOrElse { emptyList() }
+                val notification = notifications.find { it.id == notificationId }
+                if (notification != null) {
+                    apiRepository.updateNotification(notificationId, notification.copy(isRead = true))
+                    Log.d(TAG, "Notification marked as read via API: $notificationId")
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("Notification not found"))
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error marking notification as read via API", e)
+                // Fallback to Firestore
+                try {
+                    notificationsCollection.document(notificationId).update("isRead", true).await()
+                    Result.success(Unit)
+                } catch (firestoreError: Exception) {
+                    Result.failure(firestoreError)
+                }
+            }
+        } else {
+            try {
+                notificationsCollection.document(notificationId).update("isRead", true).await()
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error marking notification as read", e)
+                Result.failure(e)
+            }
         }
     }
 
@@ -165,24 +214,49 @@ class NotificationRepo {
      * Mark all notifications as read for a user
      */
     suspend fun markAllAsRead(userId: String): Result<Unit> {
-        return try {
-            val unreadNotifications = notificationsCollection
-                .whereEqualTo("userId", userId)
-                .whereEqualTo("isRead", false)
-                .get()
-                .await()
+        return if (apiRepository != null) {
+            try {
+                apiRepository.markAllNotificationsAsRead()
+                Log.d(TAG, "All notifications marked as read via API for user: $userId")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error marking all notifications as read via API", e)
+                // Fallback to Firestore
+                try {
+                    val unreadNotifications = notificationsCollection
+                        .whereEqualTo("userId", userId)
+                        .whereEqualTo("isRead", false)
+                        .get()
+                        .await()
 
-            val batch = firestore.batch()
-            unreadNotifications.documents.forEach { doc ->
-                batch.update(doc.reference, "isRead", true)
+                    val batch = firestore.batch()
+                    unreadNotifications.documents.forEach { doc ->
+                        batch.update(doc.reference, "isRead", true)
+                    }
+                    batch.commit().await()
+                    Result.success(Unit)
+                } catch (firestoreError: Exception) {
+                    Result.failure(firestoreError)
+                }
             }
-            batch.commit().await()
+        } else {
+            try {
+                val unreadNotifications = notificationsCollection
+                    .whereEqualTo("userId", userId)
+                    .whereEqualTo("isRead", false)
+                    .get()
+                    .await()
 
-            Log.d(TAG, "All notifications marked as read for user: $userId")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error marking all notifications as read", e)
-            Result.failure(e)
+                val batch = firestore.batch()
+                unreadNotifications.documents.forEach { doc ->
+                    batch.update(doc.reference, "isRead", true)
+                }
+                batch.commit().await()
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error marking all notifications as read", e)
+                Result.failure(e)
+            }
         }
     }
 
@@ -190,13 +264,29 @@ class NotificationRepo {
      * Delete a notification
      */
     suspend fun deleteNotification(notificationId: String): Result<Unit> {
-        return try {
-            notificationsCollection.document(notificationId).delete().await()
-            Log.d(TAG, "Notification deleted: $notificationId")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error deleting notification", e)
-            Result.failure(e)
+        return if (apiRepository != null) {
+            try {
+                apiRepository.deleteNotification(notificationId)
+                Log.d(TAG, "Notification deleted via API: $notificationId")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting notification via API", e)
+                // Fallback to Firestore
+                try {
+                    notificationsCollection.document(notificationId).delete().await()
+                    Result.success(Unit)
+                } catch (firestoreError: Exception) {
+                    Result.failure(firestoreError)
+                }
+            }
+        } else {
+            try {
+                notificationsCollection.document(notificationId).delete().await()
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting notification", e)
+                Result.failure(e)
+            }
         }
     }
 
@@ -204,23 +294,47 @@ class NotificationRepo {
      * Delete all notifications for a user
      */
     suspend fun deleteAllNotifications(userId: String): Result<Unit> {
-        return try {
-            val notifications = notificationsCollection
-                .whereEqualTo("userId", userId)
-                .get()
-                .await()
+        return if (apiRepository != null) {
+            try {
+                apiRepository.deleteAllNotifications()
+                Log.d(TAG, "All notifications deleted via API for user: $userId")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting all notifications via API", e)
+                // Fallback to Firestore
+                try {
+                    val notifications = notificationsCollection
+                        .whereEqualTo("userId", userId)
+                        .get()
+                        .await()
 
-            val batch = firestore.batch()
-            notifications.documents.forEach { doc ->
-                batch.delete(doc.reference)
+                    val batch = firestore.batch()
+                    notifications.documents.forEach { doc ->
+                        batch.delete(doc.reference)
+                    }
+                    batch.commit().await()
+                    Result.success(Unit)
+                } catch (firestoreError: Exception) {
+                    Result.failure(firestoreError)
+                }
             }
-            batch.commit().await()
+        } else {
+            try {
+                val notifications = notificationsCollection
+                    .whereEqualTo("userId", userId)
+                    .get()
+                    .await()
 
-            Log.d(TAG, "All notifications deleted for user: $userId")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error deleting all notifications", e)
-            Result.failure(e)
+                val batch = firestore.batch()
+                notifications.documents.forEach { doc ->
+                    batch.delete(doc.reference)
+                }
+                batch.commit().await()
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting all notifications", e)
+                Result.failure(e)
+            }
         }
     }
 

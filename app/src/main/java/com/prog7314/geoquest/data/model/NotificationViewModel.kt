@@ -1,6 +1,7 @@
 package com.prog7314.geoquest.data.model
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.prog7314.geoquest.data.data.NotificationData
 import com.prog7314.geoquest.data.repo.NotificationRepo
@@ -12,9 +13,9 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel for managing notifications
  */
-class NotificationViewModel : ViewModel() {
+class NotificationViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val notificationRepo = NotificationRepo()
+    private val notificationRepo = NotificationRepo(application)
 
     private val _notifications = MutableStateFlow<List<NotificationData>>(emptyList())
     val notifications: StateFlow<List<NotificationData>> = _notifications.asStateFlow()

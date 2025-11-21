@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">GeoQuest</string>
     <string name="default_web_client_id">325691994355-ju3ob66e7j4fddv8qlnqcfjk6visgvlq.apps.googleusercontent.com</string>
+    <string name="api_base_url">http://10.0.2.2:3000</string>
     
     <!-- Login Screen -->
     <string name="welcome_to">Welcome to</string>

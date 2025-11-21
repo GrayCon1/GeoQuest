@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 class LocationViewModel(application: Application) : AndroidViewModel(application) {
-    private val locationRepo = LocationRepo()
+    private val locationRepo = LocationRepo(application)
     private val notificationRepo = NotificationRepo()
     private val database = GeoQuestDatabase.getDatabase(application)
     private val locationDao = database.locationDao()
